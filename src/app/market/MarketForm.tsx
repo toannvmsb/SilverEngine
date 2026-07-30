@@ -7,8 +7,8 @@ import { Card } from "@/components/Badges";
 type FormState = Record<string, string | boolean>;
 
 const DEFAULTS: FormState = {
-  phuQuyBuyPrice: "24800",
-  phuQuySellPrice: "25600",
+  phuQuyBuyPrice: "56700",
+  phuQuySellPrice: "58400",
   buybackStatus: "NORMAL",
   quoteSourceTime: new Date().toISOString().slice(0, 16),
   silverSpotUsd: "31.5",
@@ -40,7 +40,7 @@ const FIELD_GROUPS: { title: string; fields: { name: string; label: string; type
   {
     title: "Giá Phú Quý (bắt buộc)",
     fields: [
-      { name: "phuQuyBuyPrice", label: "Giá mua vào (VND/gram bạc, vd ~25.000)" },
+      { name: "phuQuyBuyPrice", label: "Giá mua vào (VND/gram bạc, vd ~56.700)" },
       { name: "phuQuySellPrice", label: "Giá bán ra (VND/gram bạc)" },
       { name: "buybackStatus", label: "Trạng thái mua lại (NORMAL/RESTRICTED/STOPPED)" },
       { name: "quoteSourceTime", label: "Thời điểm báo giá", type: "datetime-local" },

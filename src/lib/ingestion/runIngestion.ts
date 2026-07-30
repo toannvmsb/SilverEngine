@@ -149,7 +149,7 @@ export async function runIngestion(enteredBy: string): Promise<IngestionRunResul
     results.push({
       sourceId: "PHUQUY_BUYBACK",
       status: "SKIPPED_NOT_CONFIGURED",
-      message: "Chưa cấu hình PHUQUY_QUOTE_URL/selector — giá Phú Quý vẫn cần nhập tay ở Market Data.",
+      message: "PHUQUY_QUOTE_API_ENABLED chưa bật (=true) trong .env — giá Phú Quý vẫn cần nhập tay ở Market Data.",
     });
   }
 

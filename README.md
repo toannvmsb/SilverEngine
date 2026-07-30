@@ -27,7 +27,7 @@ tiếp dần:
 | **Ingestion tự động — CFTC COT** | ✅ Đầy đủ — API công khai chính phủ Mỹ, không cần key |
 | **Ingestion tự động — FRED** (real yield, dollar index) | ✅ Đầy đủ — cần anh tự đăng ký `FRED_API_KEY` miễn phí |
 | **Ingestion tự động — giá bạc/vàng quốc tế** | ⚠️ Đã code theo API GoldAPI.io (free-tier), **chưa test được với key thật** (môi trường code không ra Internet ngoài) — anh cần tự đăng ký `GOLDAPI_KEY` tại goldapi.io và kiểm tra lại số liệu khi chạy local |
-| **Ingestion tự động — giá Phú Quý** | ⚠️ Khung scraper đã có (`src/lib/connectors/phuQuy.ts`), **mặc định tắt** vì chưa có URL trang giá thật — cần anh cung cấp URL + xác nhận robots.txt/điều khoản (section 4.2) rồi cấu hình `PHUQUY_QUOTE_URL`/selector |
+| **Ingestion tự động — giá Phú Quý** | ✅ Gọi thẳng API JSON nội bộ mà trang phuquy.com.vn tự dùng (`be.phuquy.com.vn/.../get-price`, không cần key). **Mặc định tắt** (`PHUQUY_QUOTE_API_ENABLED=false`) — anh tự bật `=true` sau khi xác nhận với Phú Quý/Legal là polling API này cho mục đích nội bộ chấp nhận được (section 4.2). Trang gốc là Angular SPA nên không scrape được HTML tĩnh — phải gọi thẳng API này |
 | Feature Engine (vol/drawdown từ time-series) | ✅ Tự tính từ lịch sử giá **do chính hệ thống tích luỹ** (không cần API lịch sử trả phí) — cần vài chục ngày dữ liệu tích luỹ mới đủ cho vol30d/90d, trước đó vẫn dùng giá trị nhập tay |
 | Scheduler tự động chạy ingestion định kỳ | ❌ Chưa làm (đang chạy local) — có nút "Làm mới từ API" bấm thủ công; xem mục Cron bên dưới để bật tự động khi deploy |
 | GARCH/quantile regression/ML ensemble (Phase 2-3) | ❌ Chưa làm |
@@ -97,7 +97,7 @@ nguyên tắc *fail closed* trong tài liệu, thay vì tự ý giả định m�
 ## Tự động lấy dữ liệu (connector)
 
 Trang **Market Data** có nút **"Làm mới từ API"**: gọi các connector đã cấu hình trong `.env`
-(`FRED_API_KEY`, `GOLDAPI_KEY`, `PHUQUY_QUOTE_URL`+selector), ghi đè các trường tương ứng, còn
+(`FRED_API_KEY`, `GOLDAPI_KEY`, `PHUQUY_QUOTE_API_ENABLED`), ghi đè các trường tương ứng, còn
 trường nào chưa có connector (PMI, event risk, liquidation days, price divergence, buyback status)
 thì **giữ nguyên giá trị nhập tay gần nhất** — không có gì bị ép phải tự động hoá cùng lúc.
 
