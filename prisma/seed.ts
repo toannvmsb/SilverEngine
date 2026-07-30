@@ -38,7 +38,7 @@ async function main() {
     credentialSecretRef: string | null;
   }[] = [
     { sourceId: "PHUQUY_BUYBACK", sourceName: "Phú Quý buy/sell/spread", dataDomain: "phuquy", method: "SCRAPER", staleAfterSeconds: 1800, priority: 1, ownerTeam: "Data", licenseStatus: "PENDING", credentialSecretRef: "PHUQUY_QUOTE_URL / PHUQUY_BUY_SELECTOR / PHUQUY_SELL_SELECTOR (chưa cấu hình — cần URL + xác nhận scraper policy section 4.2)" },
-    { sourceId: "SILVER_MARKET", sourceName: "Silver/Gold/Copper spot", dataDomain: "metals", method: "API", staleAfterSeconds: 3600, priority: 1, ownerTeam: "Data", licenseStatus: "PENDING", credentialSecretRef: "METALS_API_KEY (metals-api.com hoặc tương đương — xác nhận điều khoản gói đã đăng ký)" },
+    { sourceId: "SILVER_MARKET", sourceName: "Silver/Gold spot", dataDomain: "metals", method: "API", staleAfterSeconds: 3600, priority: 1, ownerTeam: "Data", licenseStatus: "PENDING", credentialSecretRef: "GOLDAPI_KEY (goldapi.io free-tier — xác nhận điều khoản gói đã đăng ký)" },
     { sourceId: "FX_DXY", sourceName: "USD/VND, DXY", dataDomain: "fx", method: "MANUAL", staleAfterSeconds: 3600, priority: 2, ownerTeam: "Data", licenseStatus: "NOT_REQUIRED", credentialSecretRef: null },
     { sourceId: "FRED_YIELDS", sourceName: "US 10Y real yield, broad dollar index", dataDomain: "rates", method: "API", staleAfterSeconds: 86400, priority: 2, ownerTeam: "Data", licenseStatus: "NOT_REQUIRED", credentialSecretRef: "FRED_API_KEY (miễn phí, tự đăng ký tại fred.stlouisfed.org)" },
     { sourceId: "MACRO_RELEASES", sourceName: "CPI, PCE, PMI, payrolls", dataDomain: "macro", method: "MANUAL", staleAfterSeconds: 86400, priority: 3, ownerTeam: "Data", licenseStatus: "NOT_REQUIRED", credentialSecretRef: null },

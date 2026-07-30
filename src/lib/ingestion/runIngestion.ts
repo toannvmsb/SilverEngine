@@ -93,12 +93,12 @@ export async function runIngestion(enteredBy: string): Promise<IngestionRunResul
     results.push({ sourceId: "FRED_YIELDS", status: "SKIPPED_NOT_CONFIGURED", message: "Thiếu FRED_API_KEY trong .env" });
   }
 
-  // 3. Metals spot — needs METALS_API_KEY. Drives vol/drawdown once enough
+  // 3. Metals spot — needs GOLDAPI_KEY. Drives vol/drawdown once enough
   // days accumulate in our own MarketObservation history.
-  const metalsKey = process.env.METALS_API_KEY;
+  const metalsKey = process.env.GOLDAPI_KEY;
   if (metalsKey) {
     try {
-      const r = await fetchMetalsSpot(metalsKey, process.env.METALS_API_BASE || "USD");
+      const r = await fetchMetalsSpot(metalsKey);
       merged.silverSpotUsd = r.silverSpotUsd;
       merged.goldSpotUsd = r.goldSpotUsd;
       if (r.copperUsd) merged.copperUsd = r.copperUsd;
@@ -127,7 +127,7 @@ export async function runIngestion(enteredBy: string): Promise<IngestionRunResul
       await logResult("SILVER_MARKET", "FAIL", msg);
     }
   } else {
-    results.push({ sourceId: "SILVER_MARKET", status: "SKIPPED_NOT_CONFIGURED", message: "Thiếu METALS_API_KEY trong .env" });
+    results.push({ sourceId: "SILVER_MARKET", status: "SKIPPED_NOT_CONFIGURED", message: "Thiếu GOLDAPI_KEY trong .env" });
   }
 
   // 4. Phu Quy scraper — disabled until PHUQUY_QUOTE_URL/selectors are set.
