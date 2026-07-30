@@ -38,6 +38,7 @@ tiếp dần:
 | Giới hạn tần suất gọi API (rate limiting) | ✅ Đăng nhập (5 lần sai/5 phút/email) + `/v1/decisions` (60 request/phút/user) — in-memory, đủ cho 1 instance, chưa dùng được nếu deploy nhiều instance/serverless (xem comment `src/lib/rateLimit.ts`) |
 | **Rà soát bảo mật** (section 15 "Security") | ✅ Đã chạy 1 vòng, tìm và sửa 1 lỗi nghiêm trọng thật (6 API GET lộ dữ liệu không cần đăng nhập) — xem "Lỗi bảo mật đã tìm và sửa" bên dưới |
 | **Quản lý người dùng qua giao diện** | ✅ Trang `/users` (chỉ System Admin) — tạo tài khoản (mật khẩu tạm hiện 1 lần), đổi role, khoá/mở khoá (có hiệu lực ngay cả với phiên đang đăng nhập, không cần đợi hết hạn) |
+| **Tự đổi mật khẩu** | ✅ Trang `/account`, mọi tài khoản. Tài khoản mới tạo/vừa được Admin cấp lại mật khẩu sẽ có banner nhắc đổi ngay lần đăng nhập tiếp theo (`mustChangePassword`) |
 | ML ensemble (Phase 3) | ❌ Chưa làm |
 | Pawn Core CDC/integration thật | ❌ Chưa làm — có API `batch-upsert` sẵn để nối khi có Pawn Core |
 | OIDC/mTLS, alert qua Zalo/SMS | ❌ Chưa làm (Telegram đã có) |

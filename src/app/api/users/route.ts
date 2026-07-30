@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
   const passwordHash = await bcrypt.hash(tempPassword, 10);
 
   const user = await prisma.user.create({
-    data: { email: parsed.data.email, name: parsed.data.name, role: parsed.data.role, branchId: parsed.data.branchId, passwordHash },
+    data: { email: parsed.data.email, name: parsed.data.name, role: parsed.data.role, branchId: parsed.data.branchId, passwordHash, mustChangePassword: true },
   });
 
   await prisma.auditLog.create({

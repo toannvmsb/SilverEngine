@@ -6,6 +6,7 @@ declare module "next-auth" {
       id: string;
       role: RoleName;
       disabled: boolean;
+      mustChangePassword: boolean;
       name?: string | null;
       email?: string | null;
       image?: string | null;
@@ -23,5 +24,6 @@ declare module "next-auth/jwt" {
     role?: RoleName;
     uid?: string;
     disabled?: boolean;
+    mustChangePassword?: boolean;
   }
 }

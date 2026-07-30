@@ -14,7 +14,7 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
 
   const tempPassword = generateTempPassword();
   const passwordHash = await bcrypt.hash(tempPassword, 10);
-  await prisma.user.update({ where: { id: params.id }, data: { passwordHash } });
+  await prisma.user.update({ where: { id: params.id }, data: { passwordHash, mustChangePassword: true } });
 
   await prisma.auditLog.create({
     data: {

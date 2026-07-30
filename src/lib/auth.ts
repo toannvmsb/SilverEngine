@@ -51,6 +51,7 @@ export const authOptions: AuthOptions = {
         const current = await prisma.user.findUnique({ where: { id: token.uid as string } });
         token.role = current ? (current.role as RoleName) : token.role;
         token.disabled = !current || current.disabled;
+        token.mustChangePassword = Boolean(current?.mustChangePassword);
       }
       return token;
     },
@@ -59,6 +60,7 @@ export const authOptions: AuthOptions = {
         (session.user as { role?: RoleName }).role = token.role as RoleName;
         (session.user as { id?: string }).id = token.uid as string;
         (session.user as { disabled?: boolean }).disabled = Boolean(token.disabled);
+        (session.user as { mustChangePassword?: boolean }).mustChangePassword = Boolean(token.mustChangePassword);
       }
       return session;
     },
