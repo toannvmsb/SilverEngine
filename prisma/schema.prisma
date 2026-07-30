@@ -1,0 +1,299 @@
+// SilverGuard Risk Engine — data model
+// Dev default: SQLite (zero setup). For production, switch provider to
+// "postgresql" and point DATABASE_URL to your Postgres/TimescaleDB instance —
+// the schema below is written to be portable to Postgres without changes.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Auth / RBAC (section 13) — simplified single-tenant role model.
+// ---------------------------------------------------------------------------
+
+// SQLite has no native enum support; Role is validated in application code
+// (see src/lib/roles.ts) against: BRANCH_VIEWER, BRANCH_OPERATOR, RISK_ANALYST,
+// RISK_APPROVER, DATA_ENGINEER, MODEL_DEVELOPER, AUDITOR, SYSTEM_ADMIN.
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         String   @default("BRANCH_VIEWER")
+  branchId     String?
+  createdAt    DateTime @default(now())
+
+  auditLogs AuditLog[]
+}
+
+// ---------------------------------------------------------------------------
+// 4. Source Registry (4.1)
+// ---------------------------------------------------------------------------
+
+model SourceRegistry {
+  id                     String   @id @default(cuid())
+  sourceId               String   @unique
+  sourceName             String
+  dataDomain             String
+  method                 String // API | SFTP | SCRAPER | CDC | MANUAL
+  baseUrl                String?
+  credentialSecretRef    String?
+  licenseStatus          String   @default("UNKNOWN") // APPROVED | PENDING | NOT_REQUIRED | DENIED
+  allowedUse             String?
+  refreshCron            String?
+  expectedLatencySeconds Int      @default(300)
+  staleAfterSeconds      Int      @default(1800)
+  priority                Int      @default(1)
+  fallbackSourceId       String?
+  parserVersion          String?
+  ownerTeam              String?
+  enabled                Boolean  @default(true)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  rawIngestionLogs RawIngestionLog[]
+}
+
+model RawIngestionLog {
+  id           String         @id @default(cuid())
+  sourceId     String
+  source       SourceRegistry @relation(fields: [sourceId], references: [sourceId])
+  requestId    String
+  status       String // OK | FAIL | INVALID
+  checksum     String?
+  rawUri       String?
+  errorMessage String?
+  createdAt    DateTime       @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// 5. Market data (manual-entry MVP; same shape automated connectors would fill)
+// ---------------------------------------------------------------------------
+
+model MarketObservation {
+  id           String   @id @default(cuid())
+  symbol       String // SILVER_SPOT, GOLD_SPOT, COPPER, DXY, USDVND, US2Y, US10Y, COT_NET_LONG_PCTL, ...
+  value        Float
+  unit         String
+  sourceTime   DateTime
+  receivedTime DateTime @default(now())
+  quality      String   @default("PASS") // PASS | PASS_WITH_WARNING | INVALID
+  sourceId     String? // free-text reference, e.g. "MANUAL" or a source_registry.sourceId
+  enteredBy    String?
+
+  @@index([symbol, sourceTime])
+}
+
+model PhuQuyQuote {
+  id             String   @id @default(cuid())
+  sku            String   @default("PHU_QUY_SILVER_999")
+  buyPrice       Float
+  sellPrice      Float
+  spreadPct      Float
+  buybackStatus  String   @default("NORMAL") // NORMAL | RESTRICTED | STOPPED
+  sourceTime     DateTime
+  receivedTime   DateTime @default(now())
+  enteredBy      String?
+
+  @@index([sourceTime])
+}
+
+model EconomicEvent {
+  id          String   @id @default(cuid())
+  eventType   String // FOMC | CPI | NFP | EXPIRY | MARGIN_NOTICE | OTHER
+  scheduledAt DateTime
+  severity    String   @default("MEDIUM") // LOW | MEDIUM | HIGH
+  actual      Float?
+  consensus   Float?
+  createdAt   DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// 6-7. Feature / Risk snapshots
+// ---------------------------------------------------------------------------
+
+model FeatureSnapshot {
+  id        String   @id @default(cuid())
+  asOf      DateTime @default(now())
+  version   String   @default("FEAT-1.0")
+  features  String // JSON blob: { featureName: value, ... }
+  createdAt DateTime @default(now())
+}
+
+model RiskSnapshot {
+  id           String   @id @default(cuid())
+  asOf         DateTime @default(now())
+  score        Float
+  regime       String // LOW | NORMAL | CAUTIOUS | HIGH | STRESS | CRISIS
+  components   String // JSON: { priceVol, macro, positioning, liquidity, event }
+  esByHorizon  String // JSON: { "7": {...}, "14": {...}, ... }
+  modelVersion String   @default("RSK-1.0.0")
+  reasonCodes  String // JSON array
+  createdAt    DateTime @default(now())
+
+  policySnapshots PolicySnapshot[]
+}
+
+// ---------------------------------------------------------------------------
+// 8. Decision engine / policy
+// ---------------------------------------------------------------------------
+
+model PolicySnapshot {
+  id             String        @id @default(cuid())
+  asOf           DateTime      @default(now())
+  productCode    String        @default("PHU_QUY_SILVER_999")
+  branchId       String        @default("HN01")
+  riskSnapshotId String?
+  riskSnapshot   RiskSnapshot? @relation(fields: [riskSnapshotId], references: [id])
+  regime         String
+  riskScore      Float
+  dataQualityScore Float
+  terms          String // JSON array of {days, ltvCap, status}
+  reasonCodes    String // JSON array
+  policyVersion  String
+  modelVersion   String
+  createdAt      DateTime      @default(now())
+
+  @@index([productCode, branchId, asOf])
+}
+
+model DecisionLog {
+  id              String   @id @default(cuid())
+  decisionId      String   @unique @default(cuid())
+  requestId       String   @unique // idempotency key
+  productCode     String
+  branchId        String
+  assetId         String
+  weightGram      Float
+  sealStatus      String
+  serialVerified  Boolean
+  customerSegment String?
+  requestedTermDays Int
+  requestedAmount Float
+  inputsSnapshot  String // JSON: full input snapshot for replay
+  inputsHash      String
+  decision        String // APPROVE | REFER | DECLINE | STOP_NEW_LOANS
+  approvedLtv     Float
+  maxLoan         Float
+  maxTermDays     Int
+  interestRateApr Float
+  liquidationValue Float
+  reasonCodes     String // JSON array
+  policyVersion   String
+  modelVersion    String
+  ruleVersion     String
+  overrideBy      String?
+  overrideReason  String?
+  createdAt       DateTime @default(now())
+  expiresAt       DateTime
+
+  @@index([assetId])
+  @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// 9. Portfolio monitoring
+// ---------------------------------------------------------------------------
+
+model PortfolioContract {
+  id               String   @id @default(cuid())
+  contractId       String   @unique
+  branchId         String
+  customerSegment  String?
+  assetId          String
+  weightGram       Float
+  purity           Float    @default(0.999)
+  principal        Float
+  originalLtv      Float
+  termDays         Int
+  originatedAt     DateTime
+  maturesAt        DateTime
+  status           String   @default("ACTIVE") // ACTIVE | EXTENDED | REDEEMED | LIQUIDATED | DEFAULT
+  interestRateApr  Float
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  valuations PortfolioValuation[]
+}
+
+model PortfolioValuation {
+  id                  String            @id @default(cuid())
+  contractId          String
+  contract            PortfolioContract @relation(fields: [contractId], references: [contractId])
+  asOf                DateTime          @default(now())
+  liquidationValue    Float
+  currentLtv          Float
+  stressedLtv10       Float
+  stressedLtv20       Float
+  stressedLtv30       Float
+  daysToMaturity      Int
+  action              String? // CALL_CUSTOMER | COLLECT_PARTIAL | BLOCK_EXTENSION | PRIORITY_LIQUIDATION_REVIEW
+  alertLevel          String? // INFO | WARNING | HIGH | CRITICAL
+  createdAt           DateTime          @default(now())
+
+  @@index([contractId, asOf])
+}
+
+// ---------------------------------------------------------------------------
+// Governance (model/rule registry, alerts, audit)
+// ---------------------------------------------------------------------------
+
+model ModelRegistryEntry {
+  id           String   @id @default(cuid())
+  modelName    String
+  version      String
+  artifactUri  String?
+  metrics      String? // JSON
+  approvedBy   String?
+  approvedAt   DateTime?
+  isChampion   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@unique([modelName, version])
+}
+
+model RuleRegistryEntry {
+  id          String    @id @default(cuid())
+  ruleSetName String
+  version     String
+  content     String // JSON/YAML serialized rules (policy config, hard triggers)
+  approvedBy  String?
+  approvedAt  DateTime?
+  isActive    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  @@unique([ruleSetName, version])
+}
+
+model AlertEvent {
+  id           String    @id @default(cuid())
+  level        String // INFO | WARNING | HIGH | CRITICAL
+  category     String
+  message      String
+  contextJson  String? // JSON
+  acknowledged Boolean   @default(false)
+  acknowledgedBy String?
+  acknowledgedAt DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([level, acknowledged])
+}
+
+model AuditLog {
+  id              String   @id @default(cuid())
+  actorId         String?
+  actor           User?    @relation(fields: [actorId], references: [id])
+  actorService    String? // for system/service actors
+  action          String
+  beforeJson      String?
+  afterJson       String?
+  correlationId   String?
+  createdAt       DateTime @default(now())
+
+  @@index([correlationId])
+}
