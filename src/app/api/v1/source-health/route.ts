@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 // Section 10.3 GET /v1/source-health
 export async function GET() {
   const sources = await prisma.sourceRegistry.findMany({ orderBy: { priority: "asc" } });

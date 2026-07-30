@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 // Section 10.3 GET /v1/portfolio/summary
 export async function GET() {
   const contracts = await prisma.portfolioContract.findMany({ where: { status: "ACTIVE" } });

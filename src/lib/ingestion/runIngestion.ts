@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { runPipeline, getLatestFeatureSnapshot, getLatestPhuQuyQuote } from "@/lib/pipeline";
 import { MarketFeatureFormData, marketFeatureFormSchema } from "@/lib/featureSnapshot";
 import { ConnectorError } from "@/lib/connectors/types";
-import { fetchCftcCotSilver } from "@/lib/connectors/cftcCot";
+import { fetchCftcCotSilver, isCftcConnectorConfigured } from "@/lib/connectors/cftcCot";
 import { fetchFredMacro } from "@/lib/connectors/fred";
 import { fetchMetalsSpot } from "@/lib/connectors/metalsSpot";
 import { fetchPhuQuyQuote, isPhuQuyConnectorConfigured } from "@/lib/connectors/phuQuy";
@@ -55,20 +55,31 @@ export async function runIngestion(enteredBy: string): Promise<IngestionRunResul
   const results: IngestionSourceResult[] = [];
   let phuQuyUpdated = false;
 
-  // 1. CFTC COT — public, no key required.
-  try {
-    const r = await fetchCftcCotSilver();
-    merged.cotNetLongPercentile = r.cotNetLongPercentile;
-    merged.oiShockPct = r.oiShockPct;
-    await prisma.marketObservation.createMany({
-      data: r.observations.map((o) => ({ symbol: o.symbol, value: o.value, unit: o.unit, sourceTime: o.sourceTime, quality: "PASS", sourceId: "CFTC_COT", enteredBy })),
+  // 1. CFTC COT — public, no key required, but blocked at the network level
+  // from Vietnam-based connections (confirmed 403 in-browser too — see
+  // comment in connectors/cftcCot.ts). Off by default; flip
+  // CFTC_COT_ENABLED=true if running from somewhere the block doesn't apply.
+  if (isCftcConnectorConfigured()) {
+    try {
+      const r = await fetchCftcCotSilver();
+      merged.cotNetLongPercentile = r.cotNetLongPercentile;
+      merged.oiShockPct = r.oiShockPct;
+      await prisma.marketObservation.createMany({
+        data: r.observations.map((o) => ({ symbol: o.symbol, value: o.value, unit: o.unit, sourceTime: o.sourceTime, quality: "PASS", sourceId: "CFTC_COT", enteredBy })),
+      });
+      results.push({ sourceId: "CFTC_COT", status: "OK" });
+      await logResult("CFTC_COT", "OK", undefined, r.raw);
+    } catch (e) {
+      const msg = e instanceof ConnectorError ? e.message : String(e);
+      results.push({ sourceId: "CFTC_COT", status: "FAIL", message: msg });
+      await logResult("CFTC_COT", "FAIL", msg);
+    }
+  } else {
+    results.push({
+      sourceId: "CFTC_COT",
+      status: "SKIPPED_NOT_CONFIGURED",
+      message: "CFTC_COT_ENABLED chưa bật — CFTC chặn theo IP/quốc gia từ VN (đã xác nhận), COT vẫn cần nhập tay ở Market Data.",
     });
-    results.push({ sourceId: "CFTC_COT", status: "OK" });
-    await logResult("CFTC_COT", "OK", undefined, r.raw);
-  } catch (e) {
-    const msg = e instanceof ConnectorError ? e.message : String(e);
-    results.push({ sourceId: "CFTC_COT", status: "FAIL", message: msg });
-    await logResult("CFTC_COT", "FAIL", msg);
   }
 
   // 2. FRED — free but needs FRED_API_KEY.

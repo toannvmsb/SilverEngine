@@ -4,15 +4,32 @@ import { ConnectorError, ConnectorObservation } from "./types";
 // required (US government open data). Section 4 table: "CFTC Public
 // Reporting API", weekly.
 //
+// CONFIRMED (2026-07, tested from a real Vietnam-based connection, both via
+// Node fetch with browser headers AND directly in a browser address bar):
+// publicreporting.cftc.gov returns a plain "403 Forbidden" for requests from
+// this network — this is an infrastructure-level block (very likely
+// geo/IP-based, common for US .gov sites), not something fixable with
+// request headers. A free CFTC mirror on Nasdaq Data Link was also checked
+// and no longer appears to carry these datasets under a free tier.
+//
+// Gated behind CFTC_COT_ENABLED=true so it doesn't fail loudly on every
+// ingestion run by default — flip it on if you ever run this from a
+// US-hosted server, where the block may not apply.
+//
 // Dataset: "Disaggregated Futures and Options Combined Reports" (silver is a
 // physical commodity, reported under the disaggregated — not legacy —
 // report, which breaks out Managed Money separately from Producer/Merchant).
 // Socrata dataset id kh3c-gbw2 is the disaggregated combined report as of
-// this writing; CFTC has renamed/retired dataset ids before, so if this
-// 404s, look up the current id at https://publicreporting.cftc.gov and
-// update SOCRATA_DATASET below.
+// this writing (untested end-to-end due to the block above); CFTC has
+// renamed/retired dataset ids before, so if this 404s once reachable, look
+// up the current id at https://publicreporting.cftc.gov and update
+// SOCRATA_DATASET below.
 const SOCRATA_DATASET = "kh3c-gbw2";
 const SOURCE_ID = "CFTC_COT";
+
+export function isCftcConnectorConfigured(): boolean {
+  return process.env.CFTC_COT_ENABLED === "true";
+}
 
 interface CftcRow {
   report_date_as_yyyy_mm_dd: string;

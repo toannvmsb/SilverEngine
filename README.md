@@ -24,9 +24,9 @@ tiếp dần:
 | RBAC 8 role + maker-checker cho policy | ✅ Đơn giản hoá (NextAuth credentials, chưa OIDC/mTLS) |
 | Audit log + replay quyết định lịch sử | ✅ Đầy đủ |
 | Portfolio stress test (-10/-20/-30%), alert | ✅ Đầy đủ (thủ công trigger, chưa có scheduler) |
-| **Ingestion tự động — CFTC COT** | ✅ Đầy đủ — API công khai chính phủ Mỹ, không cần key |
-| **Ingestion tự động — FRED** (real yield, dollar index) | ✅ Đầy đủ — cần anh tự đăng ký `FRED_API_KEY` miễn phí |
-| **Ingestion tự động — giá bạc/vàng quốc tế** | ⚠️ Đã code theo API GoldAPI.io (free-tier), **chưa test được với key thật** (môi trường code không ra Internet ngoài) — anh cần tự đăng ký `GOLDAPI_KEY` tại goldapi.io và kiểm tra lại số liệu khi chạy local |
+| **Ingestion tự động — CFTC COT** | ⚠️ Code xong nhưng **CFTC chặn theo IP/quốc gia từ Việt Nam** (đã xác nhận cả qua code lẫn mở thẳng trên trình duyệt — không phải lỗi của mình, không sửa được bằng code). Mặc định tắt (`CFTC_COT_ENABLED=false`), COT vẫn nhập tay — chỉ 15% trọng số Risk Score nên không cấp thiết. Thử bật lại nếu sau này deploy server đặt tại Mỹ |
+| **Ingestion tự động — FRED** (real yield, dollar index) | ✅ Đầy đủ, đã chạy thật thành công — cần `FRED_API_KEY` miễn phí |
+| **Ingestion tự động — giá bạc/vàng quốc tế** | ✅ Đầy đủ, đã chạy thật thành công với GoldAPI.io — cần `GOLDAPI_KEY` free-tier |
 | **Ingestion tự động — giá Phú Quý** | ✅ Gọi thẳng API JSON nội bộ mà trang phuquy.com.vn tự dùng (`be.phuquy.com.vn/.../get-price`, không cần key). **Mặc định tắt** (`PHUQUY_QUOTE_API_ENABLED=false`) — anh tự bật `=true` sau khi xác nhận với Phú Quý/Legal là polling API này cho mục đích nội bộ chấp nhận được (section 4.2). Trang gốc là Angular SPA nên không scrape được HTML tĩnh — phải gọi thẳng API này |
 | Feature Engine (vol/drawdown từ time-series) | ✅ Tự tính từ lịch sử giá **do chính hệ thống tích luỹ** (không cần API lịch sử trả phí) — cần vài chục ngày dữ liệu tích luỹ mới đủ cho vol30d/90d, trước đó vẫn dùng giá trị nhập tay |
 | Scheduler tự động chạy ingestion định kỳ | ❌ Chưa làm (đang chạy local) — có nút "Làm mới từ API" bấm thủ công; xem mục Cron bên dưới để bật tự động khi deploy |
@@ -96,20 +96,22 @@ nguyên tắc *fail closed* trong tài liệu, thay vì tự ý giả định m�
 
 ## Tự động lấy dữ liệu (connector)
 
-Trang **Market Data** có nút **"Làm mới từ API"**: gọi các connector đã cấu hình trong `.env`
-(`FRED_API_KEY`, `GOLDAPI_KEY`, `PHUQUY_QUOTE_API_ENABLED`), ghi đè các trường tương ứng, còn
-trường nào chưa có connector (PMI, event risk, liquidation days, price divergence, buyback status)
-thì **giữ nguyên giá trị nhập tay gần nhất** — không có gì bị ép phải tự động hoá cùng lúc.
+Trang **Market Data** có nút **"Làm mới từ API"**: gọi các connector đã bật trong `.env`
+(`FRED_API_KEY`, `GOLDAPI_KEY`, `PHUQUY_QUOTE_API_ENABLED`, `CFTC_COT_ENABLED`), ghi đè các trường
+tương ứng, còn trường nào chưa có connector (PMI, event risk, liquidation days, price divergence,
+buyback status) thì **giữ nguyên giá trị nhập tay gần nhất** — không có gì bị ép phải tự động hoá
+cùng lúc.
 
 Yêu cầu trước khi bấm nút này lần đầu: đã nhập tay **ít nhất 1 lần** ở Market Data (hệ thống cần một
 baseline để biết các trường chưa-tự-động-hoá lấy giá trị gì) — đúng tinh thần *fail closed*, không tự
 suy đoán số liệu khi chưa có gì làm nền.
 
-Chi tiết từng connector, field mapping, giới hạn: xem comment đầu mỗi file trong
-`src/lib/connectors/`. **Lưu ý quan trọng**: các connector (trừ CFTC) được viết trong môi trường code
-không có Internet ra ngoài nên **chưa được test trực tiếp với API thật** — khi anh chạy local với key
-thật, hãy đối chiếu số liệu trả về với một nguồn tham khảo công khai trước khi tin dùng, và báo lại
-nếu provider trả sai cấu trúc so với code (rất có thể cần chỉnh field mapping).
+Trạng thái đã xác nhận bằng chạy thật (không phải chỉ code xong):
+- ✅ **FRED, GoldAPI, Phú Quý**: đã chạy thành công trên máy thật, trả về `OK`.
+- ⚠️ **CFTC**: bị chặn theo IP/quốc gia từ Việt Nam (403, xác nhận cả qua trình duyệt) — không phải
+  lỗi code, mặc định tắt. Xem comment đầu `src/lib/connectors/cftcCot.ts`.
+
+Chi tiết từng connector, field mapping: xem comment đầu mỗi file trong `src/lib/connectors/`.
 
 ### Tự động chạy theo lịch (khi deploy thật)
 

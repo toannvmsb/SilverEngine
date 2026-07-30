@@ -42,7 +42,7 @@ async function main() {
     { sourceId: "FX_DXY", sourceName: "USD/VND, DXY", dataDomain: "fx", method: "MANUAL", staleAfterSeconds: 3600, priority: 2, ownerTeam: "Data", licenseStatus: "NOT_REQUIRED", credentialSecretRef: null },
     { sourceId: "FRED_YIELDS", sourceName: "US 10Y real yield, broad dollar index", dataDomain: "rates", method: "API", staleAfterSeconds: 86400, priority: 2, ownerTeam: "Data", licenseStatus: "NOT_REQUIRED", credentialSecretRef: "FRED_API_KEY (miễn phí, tự đăng ký tại fred.stlouisfed.org)" },
     { sourceId: "MACRO_RELEASES", sourceName: "CPI, PCE, PMI, payrolls", dataDomain: "macro", method: "MANUAL", staleAfterSeconds: 86400, priority: 3, ownerTeam: "Data", licenseStatus: "NOT_REQUIRED", credentialSecretRef: null },
-    { sourceId: "CFTC_COT", sourceName: "CFTC COT silver futures/options", dataDomain: "positioning", method: "API", staleAfterSeconds: 604800, priority: 3, ownerTeam: "Data", licenseStatus: "NOT_REQUIRED", credentialSecretRef: null },
+    { sourceId: "CFTC_COT", sourceName: "CFTC COT silver futures/options", dataDomain: "positioning", method: "API", staleAfterSeconds: 604800, priority: 3, ownerTeam: "Data", licenseStatus: "NOT_REQUIRED", credentialSecretRef: "CFTC_COT_ENABLED=true (chặn theo IP/quốc gia từ VN, đã xác nhận — thử lại nếu deploy server ở Mỹ)" },
     { sourceId: "ECON_CALENDAR", sourceName: "Fed/CPI/payroll/expiry/margin notices", dataDomain: "events", method: "MANUAL", staleAfterSeconds: 3600, priority: 3, ownerTeam: "Risk", licenseStatus: "NOT_REQUIRED", credentialSecretRef: null },
   ];
   for (const s of sources) {
