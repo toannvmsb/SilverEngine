@@ -20,19 +20,21 @@ tiếp dần:
 | Lãi suất theo rủi ro (base + term + regime + risk score premium) | ✅ Đầy đủ — **không có trong tài liệu gốc**, tự thiết kế theo yêu cầu, cần Pháp chế xác nhận trần lãi suất trước khi dùng thật |
 | API contract (policies/current, decisions, portfolio, source-health) | ✅ Đầy đủ (section 10) |
 | Database schema (14 bảng section 11) | ✅ Đầy đủ |
-| Dashboard: Executive, Market, Policy, Calculator, Portfolio, Audit | ✅ Đầy đủ |
+| Dashboard: Executive, Market, Policy, Calculator, Portfolio, Data Quality, Governance, Audit | ✅ Đầy đủ (7/7 màn hình section 12) |
 | RBAC 8 role + maker-checker cho policy | ✅ Đơn giản hoá (NextAuth credentials, chưa OIDC/mTLS) |
 | Audit log + replay quyết định lịch sử | ✅ Đầy đủ |
-| Portfolio stress test (-10/-20/-30%), alert | ✅ Đầy đủ (thủ công trigger, chưa có scheduler) |
+| Portfolio stress test (-10/-20/-30%), alert | ✅ Đầy đủ — bấm thủ công hoặc tự động qua scheduler |
+| Scheduler tự động chạy ingestion + revalue portfolio | ✅ `npm run scheduler` — chạy local, chưa cần deploy (xem mục Scheduler) |
+| Cảnh báo Telegram cho HIGH/CRITICAL alert | ✅ Optional — cần `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` (xem mục Cảnh báo) |
+| GJR-GARCH(1,1) + regime-conditional quantiles (Phase 2) | ✅ Chạy như **challenger** ở trang Governance — chưa tự động ảnh hưởng LTV, cần đủ lịch sử giá + con người promote (xem mục Model Governance) |
 | **Ingestion tự động — CFTC COT** | ⚠️ Code xong nhưng **CFTC chặn theo IP/quốc gia từ Việt Nam** (đã xác nhận cả qua code lẫn mở thẳng trên trình duyệt — không phải lỗi của mình, không sửa được bằng code). Mặc định tắt (`CFTC_COT_ENABLED=false`), COT vẫn nhập tay — chỉ 15% trọng số Risk Score nên không cấp thiết. Thử bật lại nếu sau này deploy server đặt tại Mỹ |
 | **Ingestion tự động — FRED** (real yield, dollar index) | ✅ Đầy đủ, đã chạy thật thành công — cần `FRED_API_KEY` miễn phí |
 | **Ingestion tự động — giá bạc/vàng quốc tế** | ✅ Đầy đủ, đã chạy thật thành công với GoldAPI.io — cần `GOLDAPI_KEY` free-tier |
 | **Ingestion tự động — giá Phú Quý** | ✅ Gọi thẳng API JSON nội bộ mà trang phuquy.com.vn tự dùng (`be.phuquy.com.vn/.../get-price`, không cần key). **Mặc định tắt** (`PHUQUY_QUOTE_API_ENABLED=false`) — anh tự bật `=true` sau khi xác nhận với Phú Quý/Legal là polling API này cho mục đích nội bộ chấp nhận được (section 4.2). Trang gốc là Angular SPA nên không scrape được HTML tĩnh — phải gọi thẳng API này |
 | Feature Engine (vol/drawdown từ time-series) | ✅ Tự tính từ lịch sử giá **do chính hệ thống tích luỹ** (không cần API lịch sử trả phí) — cần vài chục ngày dữ liệu tích luỹ mới đủ cho vol30d/90d, trước đó vẫn dùng giá trị nhập tay |
-| Scheduler tự động chạy ingestion định kỳ | ❌ Chưa làm (đang chạy local) — có nút "Làm mới từ API" bấm thủ công; xem mục Cron bên dưới để bật tự động khi deploy |
-| GARCH/quantile regression/ML ensemble (Phase 2-3) | ❌ Chưa làm |
+| ML ensemble (Phase 3) | ❌ Chưa làm |
 | Pawn Core CDC/integration thật | ❌ Chưa làm — có API `batch-upsert` sẵn để nối khi có Pawn Core |
-| OIDC/mTLS, alert qua Telegram/Zalo/SMS | ❌ Chưa làm |
+| OIDC/mTLS, alert qua Zalo/SMS | ❌ Chưa làm (Telegram đã có) |
 
 Nói cách khác: **phần "não" (risk model + decision engine + LTV + lãi suất) đã chạy đúng công thức
 trong tài liệu**; phần "tay chân" (tự động thu thập dữ liệu 24/7 từ 8 nguồn có license) là việc của
@@ -42,13 +44,19 @@ trong tài liệu: không hard-code URL/credential, mọi nguồn phải đượ
 ## Kiến trúc
 
 ```
-src/lib/engine/        risk score, regime, expected shortfall, decision engine, interest engine
-                        (pure functions, có thể unit test độc lập)
-src/lib/pipeline.ts     "feature snapshot -> risk model -> decision/rule engine" (section 3)
-src/lib/policyStore.ts  rule registry (maker-checker cho policy config)
-src/app/api/v1/...      API contract theo section 10
-src/app/*/page.tsx      dashboard (Executive, Market, Policy, Calculator, Portfolio, Audit)
-prisma/schema.prisma    14 bảng theo section 11
+src/lib/engine/         risk score, regime, expected shortfall, decision engine, interest engine
+                         (pure functions, có thể unit test độc lập)
+src/lib/pipeline.ts      "feature snapshot -> risk model -> decision/rule engine" (section 3)
+src/lib/policyStore.ts   rule registry (maker-checker cho policy config)
+src/lib/connectors/      CFTC/FRED/GoldAPI/Phú Quý connectors
+src/lib/ingestion/       ingestion orchestration + feature-from-history computation
+src/lib/alerts/          createAlert() + Telegram delivery
+src/lib/models/          GJR-GARCH, regime-conditional quantiles (challenger models)
+src/app/api/v1/...       API contract theo section 10
+src/app/*/page.tsx       dashboard: Executive, Market, Policy, Calculator, Portfolio,
+                         Data Quality, Governance, Audit (7/7 màn hình section 12)
+prisma/schema.prisma     14 bảng theo section 11
+scripts/scheduler.ts     local cron thay thế (npm run scheduler)
 ```
 
 Công thức implement đúng theo tài liệu (section 7-8):
@@ -113,15 +121,65 @@ Trạng thái đã xác nhận bằng chạy thật (không phải chỉ code xo
 
 Chi tiết từng connector, field mapping: xem comment đầu mỗi file trong `src/lib/connectors/`.
 
-### Tự động chạy theo lịch (khi deploy thật)
+## Scheduler — tự động chạy định kỳ (chạy local, không cần deploy)
 
-Hiện chưa deploy nên chưa cấu hình cron. Khi deploy, gọi định kỳ:
+Mở **thêm 1 terminal** (song song với `npm run dev`), chạy:
+```bash
+npm run scheduler
 ```
-POST /api/ingestion/run     (cần đăng nhập role Data Engineer/Risk Analyst/System Admin)
-```
-- **Vercel**: thêm `vercel.json` với `crons` trỏ tới route trên (cần đổi route thành xác thực bằng
-  secret header thay vì session cookie nếu muốn Vercel Cron gọi được — hỏi em khi anh tới bước này).
-- **VPS tự host**: thêm dòng `crontab` gọi `curl` kèm cookie/token hợp lệ mỗi 5-15 phút.
+Script này gọi thẳng vào database (không qua HTTP/session), nên không bị next dev restart làm gián
+đoạn. Mặc định: ingestion mỗi 15 phút, revalue portfolio (stress test) mỗi 5 phút — chỉnh qua
+`INGESTION_INTERVAL_MINUTES` / `STRESS_TEST_INTERVAL_MINUTES` trong `.env`. Dừng bằng `Ctrl+C`.
+
+Yêu cầu tương tự nút "Làm mới từ API": cần đã nhập tay Market Data ít nhất 1 lần trước khi scheduler
+chạy có ý nghĩa (ingestion sẽ log lỗi rõ ràng và tự thử lại ở lần chạy kế tiếp nếu chưa có baseline).
+
+Khi deploy thật (Vercel/VPS), thay `npm run scheduler` bằng cron job trong hạ tầng gọi
+`POST /api/ingestion/run` và `POST /api/v1/stress-tests/run` (cả hai đã yêu cầu role phù hợp — cần
+đổi sang xác thực bằng secret header thay vì session cookie nếu Vercel Cron gọi trực tiếp, hỏi em khi
+anh tới bước này).
+
+## Cảnh báo Telegram
+
+Khi có alert mức **HIGH** hoặc **CRITICAL** (buyback stopped, portfolio breach, regime STRESS/CRISIS,
+dữ liệu quá hạn...), hệ thống tự gửi tin nhắn Telegram nếu đã cấu hình:
+
+1. Chat với **@BotFather** trên Telegram → `/newbot` → đặt tên → nhận **bot token**.
+2. Gửi bất kỳ tin nhắn nào cho bot vừa tạo (để bot "biết" chat này).
+3. Mở trình duyệt: `https://api.telegram.org/bot<TOKEN>/getUpdates` → tìm `"chat":{"id": ...}` → đó là
+   **chat id** của anh.
+4. Trong `.env`:
+   ```
+   TELEGRAM_BOT_TOKEN=...
+   TELEGRAM_CHAT_ID=...
+   ```
+5. Chạy lại `npm run dev` (và `npm run scheduler` nếu đang chạy).
+
+Alert được dedupe trong 15 phút (không spam lặp cùng 1 cảnh báo mỗi lần ingestion chạy). Xem toàn bộ
+lịch sử + trạng thái gửi (`delivered`/`deliveryError`) trong bảng `AlertEvent` hoặc trên Executive
+dashboard.
+
+## Model Governance — GJR-GARCH & regime-conditional quantiles
+
+Trang **Governance** cho phép chạy 2 model "Phase 2" trong tài liệu gốc (section 7) như
+**challenger** — tự fit trên chuỗi giá `SILVER_SPOT_USD` mà hệ thống tự tích luỹ (không cần API
+lịch sử trả phí):
+
+- **GJR-GARCH(1,1)**: dự báo volatility có tính bất đối xứng (cú sốc giảm giá làm tăng vol nhiều hơn
+  cú sốc tăng giá cùng độ lớn) — so sánh trực tiếp với EWMA (champion hiện tại) theo từng kỳ hạn.
+- **Regime-Conditional Quantiles**: thay cho "quantile regression" đúng nghĩa (cần nhiều dữ liệu hơn
+  hệ thống hiện có để đáng tin) — dùng quantile thực nghiệm của lợi suất h-ngày, chia theo regime
+  volatility (LOW/MED/HIGH tercile) tại thời điểm đó, tự động rơi về "unconditional" nếu bucket hiện
+  tại chưa đủ mẫu.
+
+**Quan trọng**: đây là model thử nghiệm — bấm "Promote" chỉ đánh dấu trong model_registry để Risk
+theo dõi/so sánh, **không** tự động thay đổi công thức LTV đang chạy (decision engine vẫn dùng EWMA
+theo đúng tài liệu gốc). Muốn đưa 1 model đã promote vào production thật thì cần sửa code nối vào
+`src/lib/engine/decisionEngine.ts` — một quyết định kỹ thuật có chủ đích, không phải side effect của
+nút bấm này.
+
+Cần tối thiểu ~40 ngày lịch sử giá cho GJR-GARCH (ít hơn cho quantile fallback dạng unconditional) —
+bật `GOLDAPI_KEY` + chạy `npm run scheduler` vài tuần để tích luỹ đủ trước khi kỳ vọng có kết quả.
 
 ## Deploy production
 

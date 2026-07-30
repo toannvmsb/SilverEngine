@@ -35,6 +35,10 @@ export const CAN_ENTER_MARKET_DATA: RoleName[] = ["DATA_ENGINEER", "RISK_ANALYST
 
 export const CAN_VIEW_AUDIT: RoleName[] = ["AUDITOR", "RISK_APPROVER", "SYSTEM_ADMIN"];
 
+// Section 13 role table: "Model Developer: Đăng challenger, không promote production".
+export const CAN_RUN_CHALLENGER_MODELS: RoleName[] = ["MODEL_DEVELOPER", "RISK_ANALYST", "SYSTEM_ADMIN"];
+export const CAN_PROMOTE_MODEL: RoleName[] = ["RISK_APPROVER", "SYSTEM_ADMIN"];
+
 export function isRoleName(value: string): value is RoleName {
   return (ROLES as readonly string[]).includes(value);
 }

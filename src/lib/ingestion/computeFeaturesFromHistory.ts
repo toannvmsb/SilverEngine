@@ -14,7 +14,7 @@ interface DailyPoint {
   price: number;
 }
 
-async function loadDailySeries(symbol: string, lookbackDays: number): Promise<DailyPoint[]> {
+export async function loadDailySeries(symbol: string, lookbackDays: number): Promise<DailyPoint[]> {
   const since = new Date(Date.now() - lookbackDays * 86_400_000);
   const rows = await prisma.marketObservation.findMany({
     where: { symbol, sourceTime: { gte: since } },
@@ -27,7 +27,7 @@ async function loadDailySeries(symbol: string, lookbackDays: number): Promise<Da
   return Array.from(byDay.entries()).map(([day, price]) => ({ day, price }));
 }
 
-function logReturns(prices: number[]): number[] {
+export function logReturns(prices: number[]): number[] {
   const out: number[] = [];
   for (let i = 1; i < prices.length; i++) out.push(Math.log(prices[i] / prices[i - 1]));
   return out;

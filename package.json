@@ -11,6 +11,7 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
+    "scheduler": "tsx scripts/scheduler.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

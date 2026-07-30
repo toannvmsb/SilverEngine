@@ -11,6 +11,8 @@ const LINKS: { href: string; label: string }[] = [
   { href: "/policy", label: "Policy" },
   { href: "/calculator", label: "Calculator" },
   { href: "/portfolio", label: "Portfolio" },
+  { href: "/data-quality", label: "Data Quality" },
+  { href: "/governance", label: "Governance" },
   { href: "/audit", label: "Audit" },
 ];
 

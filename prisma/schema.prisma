@@ -271,15 +271,18 @@ model RuleRegistryEntry {
 }
 
 model AlertEvent {
-  id           String    @id @default(cuid())
-  level        String // INFO | WARNING | HIGH | CRITICAL
-  category     String
-  message      String
-  contextJson  String? // JSON
-  acknowledged Boolean   @default(false)
+  id             String    @id @default(cuid())
+  level          String // INFO | WARNING | HIGH | CRITICAL
+  category       String
+  message        String
+  contextJson    String? // JSON
+  acknowledged   Boolean   @default(false)
   acknowledgedBy String?
   acknowledgedAt DateTime?
-  createdAt    DateTime  @default(now())
+  delivered      Boolean   @default(false)
+  deliveryChannel String? // "telegram" | null (not attempted / not configured)
+  deliveryError  String?
+  createdAt      DateTime  @default(now())
 
   @@index([level, acknowledged])
 }
