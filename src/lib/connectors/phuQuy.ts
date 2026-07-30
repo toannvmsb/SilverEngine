@@ -80,8 +80,10 @@ export async function fetchPhuQuyQuote(): Promise<PhuQuyScrapeResult> {
     throw new ConnectorError(SOURCE_ID, "Thiếu field buyprice/sellprice hợp lệ cho sản phẩm bạc.");
   }
 
-  const buyPrice = silver.buyprice / GRAMS_PER_CHI;
-  const sellPrice = silver.sellprice / GRAMS_PER_CHI;
+  // VND has no fractional subunit, and the /gram conversion doesn't divide
+  // evenly — round to the nearest VND rather than store "56746.666666664".
+  const buyPrice = Math.round(silver.buyprice / GRAMS_PER_CHI);
+  const sellPrice = Math.round(silver.sellprice / GRAMS_PER_CHI);
   assertInRange(SOURCE_ID, "PHUQUY_BUY", buyPrice, 1000, 5_000_000);
   assertInRange(SOURCE_ID, "PHUQUY_SELL", sellPrice, 1000, 5_000_000);
   if (sellPrice <= buyPrice) {

@@ -38,12 +38,20 @@ export async function fetchCftcCotSilver(): Promise<CftcCotResult> {
 
   let res: Response;
   try {
-    res = await fetch(url, { headers: { Accept: "application/json" } });
+    // publicreporting.cftc.gov sits behind bot-protection that 403s plain
+    // Node fetch requests with no User-Agent — a browser-like one clears it.
+    res = await fetch(url, {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "Mozilla/5.0 (compatible; SilverGuardRiskEngine/0.1; internal risk pricing tool)",
+      },
+    });
   } catch (e) {
     throw new ConnectorError(SOURCE_ID, "Không gọi được CFTC Public Reporting API", e);
   }
   if (!res.ok) {
-    throw new ConnectorError(SOURCE_ID, `CFTC API trả về HTTP ${res.status}`);
+    const bodyText = await res.text().catch(() => "");
+    throw new ConnectorError(SOURCE_ID, `CFTC API trả về HTTP ${res.status}${bodyText ? ` — ${bodyText.slice(0, 300)}` : ""}`);
   }
   const rows = (await res.json()) as CftcRow[];
   if (!Array.isArray(rows) || rows.length < 10) {
