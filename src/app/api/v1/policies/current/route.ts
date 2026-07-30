@@ -25,10 +25,12 @@ export async function GET(req: NextRequest) {
     risk_score: snapshot.riskScore,
     regime: snapshot.regime,
     data_quality_score: snapshot.dataQualityScore,
+    reference_price_per_gram_vnd: snapshot.referencePricePerGram,
     terms: JSON.parse(snapshot.terms).map((t: { days: number; ltvCap: number; status: string }) => ({
       days: t.days,
       ltv_cap: t.ltvCap,
       status: t.status,
+      max_loan_per_gram_vnd: Math.round(snapshot.referencePricePerGram * t.ltvCap),
     })),
     reason_codes: JSON.parse(snapshot.reasonCodes),
     policy_version: snapshot.policyVersion,

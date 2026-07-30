@@ -153,6 +153,7 @@ model PolicySnapshot {
   regime         String
   riskScore      Float
   dataQualityScore Float
+  referencePricePerGram Float @default(0) // Phu Quy buy price x liquidity_factor — reference valuation only, excludes asset-specific quality_factor (see Calculator for a specific transaction)
   terms          String // JSON array of {days, ltvCap, status}
   reasonCodes    String // JSON array
   policyVersion  String

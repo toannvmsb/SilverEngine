@@ -3,6 +3,7 @@ import {
   buildTermPolicies,
   computeRiskScore,
   combineRegime,
+  computeLiquidityFactor,
   evaluateHardTriggers,
   regimeFromScore,
   MODEL_VERSION,
@@ -82,6 +83,12 @@ export async function runPipeline(enteredBy?: string) {
 
   const dataQualityScore = Math.min(100, Math.max(0, Math.round(100 - quoteAgeMinutes * 2)));
 
+  // Reference valuation per gram — Phu Quy buy price adjusted only for the
+  // market-wide liquidity_factor (today's buyback status), NOT the
+  // asset-specific quality_factor (seal/serial), which only applies once a
+  // specific piece of collateral is being assessed at the Calculator.
+  const referencePricePerGram = quote.buyPrice * computeLiquidityFactor(policy, market.buybackStatus);
+
   const riskSnapshot = await prisma.riskSnapshot.create({
     data: {
       score: riskResult.score,
@@ -101,6 +108,7 @@ export async function runPipeline(enteredBy?: string) {
       regime,
       riskScore: riskResult.score,
       dataQualityScore,
+      referencePricePerGram,
       terms: JSON.stringify(terms),
       reasonCodes: JSON.stringify(hardOutcome.reasonCodes),
       policyVersion,
