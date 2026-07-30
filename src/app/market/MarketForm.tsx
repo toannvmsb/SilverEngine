@@ -6,11 +6,22 @@ import { Card } from "@/components/Badges";
 
 type FormState = Record<string, string | boolean>;
 
+// <input type="datetime-local"> has no timezone concept — it displays
+// whatever string it's given as if it were local wall-clock time. Using
+// toISOString() directly gives the UTC representation, which reads as
+// wrong-by-the-local-offset (e.g. 7h off in Vietnam, UTC+7). Shift the
+// instant by the local offset first so the string that comes out matches
+// what the clock on the wall actually says.
+function toLocalDatetimeValue(date: Date): string {
+  const offsetMs = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+}
+
 const DEFAULTS: FormState = {
   phuQuyBuyPrice: "56700",
   phuQuySellPrice: "58400",
   buybackStatus: "NORMAL",
-  quoteSourceTime: new Date().toISOString().slice(0, 16),
+  quoteSourceTime: toLocalDatetimeValue(new Date()),
   silverSpotUsd: "31.5",
   goldSpotUsd: "2650",
   copperUsd: "4.6",
@@ -124,9 +135,7 @@ export default function MarketForm() {
           setForm((prev) => ({
             ...prev,
             ...f,
-            quoteSourceTime: new Date(f.quoteSourceTime ?? d.quote?.sourceTime ?? Date.now())
-              .toISOString()
-              .slice(0, 16),
+            quoteSourceTime: toLocalDatetimeValue(new Date(f.quoteSourceTime ?? d.quote?.sourceTime ?? Date.now())),
           }));
         }
       })
@@ -144,9 +153,7 @@ export default function MarketForm() {
       setForm((prev) => ({
         ...prev,
         ...f,
-        quoteSourceTime: new Date(f.quoteSourceTime ?? r.quote?.sourceTime ?? Date.now())
-          .toISOString()
-          .slice(0, 16),
+        quoteSourceTime: toLocalDatetimeValue(new Date(f.quoteSourceTime ?? r.quote?.sourceTime ?? Date.now())),
       }));
     }
   }
