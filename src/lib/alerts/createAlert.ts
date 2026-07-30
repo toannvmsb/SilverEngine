@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { isTelegramConfigured, sendTelegramMessage } from "./telegram";
+import { isEmailConfigured, sendAlertEmail } from "./email";
 
 const LEVEL_EMOJI: Record<string, string> = {
   INFO: "ℹ️",
@@ -25,10 +26,12 @@ export interface CreateAlertInput {
 }
 
 /**
- * Creates an alert_event row and, for HIGH/CRITICAL, attempts Telegram
- * delivery. Deduplicates identical (level, category, message) alerts raised
- * again within DEDUP_WINDOW_MINUTES — the existing row's timestamp is left
- * alone (not "refreshed") so the dashboard still shows when it first fired.
+ * Creates an alert_event row and, for HIGH/CRITICAL, attempts delivery on
+ * every configured channel (Telegram, Email) independently — one channel
+ * failing doesn't block the other. Deduplicates identical (level, category,
+ * message) alerts raised again within DEDUP_WINDOW_MINUTES — the existing
+ * row's timestamp is left alone (not "refreshed") so the dashboard still
+ * shows when it first fired.
  */
 export async function createAlert(input: CreateAlertInput): Promise<void> {
   const since = new Date(Date.now() - DEDUP_WINDOW_MINUTES * 60_000);
@@ -37,15 +40,25 @@ export async function createAlert(input: CreateAlertInput): Promise<void> {
   });
   if (dup) return;
 
-  const shouldDeliver = DELIVER_LEVELS.has(input.level) && isTelegramConfigured();
-  let delivered = false;
-  let deliveryError: string | null = null;
+  const shouldDeliver = DELIVER_LEVELS.has(input.level);
+  const attempted: string[] = [];
+  const succeeded: string[] = [];
+  const errors: string[] = [];
 
-  if (shouldDeliver) {
+  if (shouldDeliver && isTelegramConfigured()) {
+    attempted.push("telegram");
     const text = `${LEVEL_EMOJI[input.level] ?? ""} <b>${input.level}</b> [${input.category}]\n${input.message}`;
     const result = await sendTelegramMessage(text);
-    delivered = result.ok;
-    deliveryError = result.ok ? null : result.error;
+    if (result.ok) succeeded.push("telegram");
+    else errors.push(`telegram: ${result.error}`);
+  }
+
+  if (shouldDeliver && isEmailConfigured()) {
+    attempted.push("email");
+    const subject = `[SilverGuard ${input.level}] ${input.category}`;
+    const result = await sendAlertEmail(subject, input.message);
+    if (result.ok) succeeded.push("email");
+    else errors.push(`email: ${result.error}`);
   }
 
   await prisma.alertEvent.create({
@@ -54,9 +67,9 @@ export async function createAlert(input: CreateAlertInput): Promise<void> {
       category: input.category,
       message: input.message,
       contextJson: input.context ? JSON.stringify(input.context) : null,
-      delivered,
-      deliveryChannel: shouldDeliver ? "telegram" : null,
-      deliveryError,
+      delivered: succeeded.length > 0,
+      deliveryChannel: attempted.length > 0 ? attempted.join(",") : null,
+      deliveryError: errors.length > 0 ? errors.join(" | ") : null,
     },
   });
 }

@@ -199,6 +199,26 @@ Alert được dedupe trong 15 phút (không spam lặp cùng 1 cảnh báo mỗ
 lịch sử + trạng thái gửi (`delivered`/`deliveryError`) trong bảng `AlertEvent` hoặc trên Executive
 dashboard.
 
+## Cảnh báo Email
+
+Kênh thứ 2 cho HIGH/CRITICAL alert, dùng **Resend** (resend.com) — chọn vì có gói free và không cần
+duyệt doanh nghiệp như Zalo OA:
+
+1. Đăng ký free tại resend.com, lấy **API key** (Dashboard → API Keys).
+2. Trong `.env`:
+   ```
+   RESEND_API_KEY=...
+   ALERT_EMAIL_TO=email-cua-anh@...
+   ```
+3. Chạy lại `npm run dev`.
+
+Mặc định gửi từ địa chỉ sandbox `onboarding@resend.dev` của Resend — **chỉ gửi được tới đúng email anh
+dùng để đăng ký Resend**. Muốn gửi cho cả đội (nhiều người, email công ty), cần xác minh 1 domain trong
+Resend rồi đặt `ALERT_EMAIL_FROM` thành địa chỉ thuộc domain đó.
+
+Telegram và Email chạy độc lập — bật cả hai thì alert gửi cả hai kênh, 1 kênh lỗi không chặn kênh còn
+lại. Xem `deliveryChannel`/`deliveryError` trên bảng `AlertEvent` để biết kênh nào đã gửi/lỗi.
+
 ## Model Governance — GJR-GARCH & regime-conditional quantiles
 
 Trang **Governance** cho phép chạy 2 model "Phase 2" trong tài liệu gốc (section 7) như
@@ -221,15 +241,68 @@ nút bấm này.
 Cần tối thiểu ~40 ngày lịch sử giá cho GJR-GARCH (ít hơn cho quantile fallback dạng unconditional) —
 bật `GOLDAPI_KEY` + chạy `npm run scheduler` vài tuần để tích luỹ đủ trước khi kỳ vọng có kết quả.
 
-## Deploy production
+## Deploy lên Vercel
 
-- Đổi `datasource db { provider = "sqlite" }` trong `prisma/schema.prisma` sang `"postgresql"` và trỏ
-  `DATABASE_URL` tới Postgres/TimescaleDB.
-- Đặt `NEXTAUTH_SECRET` thật (`openssl rand -base64 32`) và `NEXTAUTH_URL` là domain thật.
-- Đổi mật khẩu seed hoặc xoá user seed, tạo user thật.
-- Xác nhận `interest.maxAprPct` trong Policy config với Pháp chế/Compliance trước khi dùng.
+### 1. Tạo database Postgres (SQLite chỉ dùng được ở local — Vercel không có ổ đĩa ghi được lâu dài)
+
+Chọn 1 trong các gói free-tier: **Vercel Postgres** (tích hợp sẵn trong dashboard Vercel, dễ nhất),
+hoặc **Supabase**/**Neon** (free tier riêng, kết nối qua connection string chuẩn Postgres).
+
+Sau khi có connection string (dạng `postgresql://user:pass@host:port/db?sslmode=require`):
+
+1. Sửa `prisma/schema.prisma`, đổi:
+   ```prisma
+   datasource db {
+     provider = "sqlite"   // đổi thành "postgresql"
+     url      = env("DATABASE_URL")
+   }
+   ```
+2. Chạy `npx prisma db push` **với `DATABASE_URL` trỏ tới Postgres** (đặt tạm trong `.env` hoặc biến
+   môi trường dòng lệnh) để tạo bảng trên Postgres — schema đã viết portable sẵn (không dùng field
+   type riêng của SQLite), không cần sửa gì thêm trong file schema ngoài dòng `provider`.
+3. Chạy `npm run db:seed` (trỏ cùng `DATABASE_URL` Postgres) để có tài khoản System Admin đầu tiên —
+   **đổi mật khẩu ngay sau khi deploy** (trang `/account` hoặc `/users`).
+
+### 2. Import repo vào Vercel
+
+Vercel → Add New Project → chọn repo GitHub `toannvmsb/SilverEngine`, branch cần deploy.
+
+### 3. Cấu hình biến môi trường (Project Settings → Environment Variables)
+
+Bắt buộc:
+```
+DATABASE_URL=<connection string Postgres>
+NEXTAUTH_SECRET=<openssl rand -base64 32>
+NEXTAUTH_URL=https://<domain-that-vercel-cấp-hoặc-domain-riêng>
+CRON_SECRET=<openssl rand -base64 32>
+```
+Tuỳ chọn (copy nguyên từ `.env` local nếu đã dùng): `FRED_API_KEY`, `GOLDAPI_KEY`,
+`PHUQUY_QUOTE_API_ENABLED`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `RESEND_API_KEY`,
+`ALERT_EMAIL_TO`, `ALERT_EMAIL_FROM`.
+
+### 4. Cron tự động (thay cho `npm run scheduler`)
+
+`vercel.json` đã cấu hình sẵn 2 cron job gọi `/api/cron/ingestion` (mỗi 15 phút) và
+`/api/cron/stress-test` (mỗi 5 phút) — Vercel tự gắn header `Authorization: Bearer $CRON_SECRET` khi
+gọi, 2 route này chỉ chấp nhận đúng secret đó (không dùng session người dùng, vì Cron không đăng nhập
+được).
+
+**Lưu ý gói Hobby (free)**: Vercel từng giới hạn Cron Jobs trên gói Hobby chỉ chạy tối đa 1 lần/ngày
+(chính sách có thể đã thay đổi — kiểm tra tại vercel.com/docs/cron-jobs/usage-and-pricing lúc anh
+deploy). Nếu gói hiện tại của anh không cho chạy mỗi 5-15 phút, dùng dịch vụ cron ngoài miễn phí (vd
+cron-job.org, hoặc GitHub Actions scheduled workflow) gọi `GET` tới 2 URL trên kèm header
+`Authorization: Bearer <CRON_SECRET>` — 2 route này không phụ thuộc Vercel, gọi từ đâu cũng được.
+
+### 5. Sau khi deploy
+
+- Đổi mật khẩu tất cả tài khoản seed (hoặc xoá, tạo user thật qua trang Users).
+- Xác nhận `interest.maxAprPct` trong Policy config với Pháp chế/Compliance trước khi dùng số thật.
 - `npm audit` hiện còn cảnh báo trên Next.js 14.2.x (đã dùng bản patch mới nhất của nhánh 14); cân
   nhắc nâng lên Next 15/16 sau khi có thời gian test kỹ (là breaking change, chưa làm trong lần này).
+- Rate limiting hiện là in-memory (`src/lib/rateLimit.ts`) — chỉ đúng khi chạy 1 instance. Vercel có
+  thể chạy nhiều instance song song cho cùng 1 deployment ở lưu lượng cao, lúc đó giới hạn sẽ lỏng hơn
+  số đã cấu hình (không sai lệch nguy hiểm, chỉ là giới hạn kém chính xác) — nâng cấp lên Redis/Upstash
+  nếu cần chính xác tuyệt đối.
 
 ## Làm việc nhiều máy qua Git
 
