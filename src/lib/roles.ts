@@ -23,6 +23,15 @@ export const ROLE_LABELS: Record<RoleName, string> = {
   SYSTEM_ADMIN: "System Admin",
 };
 
+// Any authenticated user — for read-only endpoints that leak no more than
+// what every dashboard page already shows once logged in (section 13:
+// every role has at least some "Xem" permission). Every one of these routes
+// still requires a valid session; this is NOT "no auth", it's "any role".
+// If/when a real machine-to-machine Pawn Core integration exists, section
+// 13's "service-to-service mTLS hoặc signed JWT" should replace this for
+// that specific caller instead of widening it to more human roles.
+export const CAN_VIEW_GENERAL_DATA: RoleName[] = [...ROLES];
+
 // Roles allowed to call the transaction decision API (branch-facing).
 export const CAN_SUBMIT_TRANSACTIONS: RoleName[] = ["BRANCH_OPERATOR", "RISK_ANALYST", "RISK_APPROVER", "SYSTEM_ADMIN"];
 

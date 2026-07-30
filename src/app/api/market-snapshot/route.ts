@@ -3,9 +3,12 @@ import { prisma } from "@/lib/db";
 import { marketFeatureFormSchema } from "@/lib/featureSnapshot";
 import { runPipeline, getLatestFeatureSnapshot, getLatestPhuQuyQuote } from "@/lib/pipeline";
 import { requireRole } from "@/lib/apiAuth";
-import { CAN_ENTER_MARKET_DATA } from "@/lib/roles";
+import { CAN_ENTER_MARKET_DATA, CAN_VIEW_GENERAL_DATA } from "@/lib/roles";
 
 export async function GET() {
+  const auth = await requireRole(CAN_VIEW_GENERAL_DATA);
+  if ("error" in auth) return auth.error;
+
   const [feature, quote] = await Promise.all([getLatestFeatureSnapshot(), getLatestPhuQuyQuote()]);
   return NextResponse.json({ feature, quote });
 }

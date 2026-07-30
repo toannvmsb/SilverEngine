@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireRole } from "@/lib/apiAuth";
+import { CAN_VIEW_GENERAL_DATA } from "@/lib/roles";
 
 // Section 10.1 Daily policy API
 // GET /v1/policies/current?product=PHU_QUY_SILVER_999&branch_id=HN01
 export async function GET(req: NextRequest) {
+  const auth = await requireRole(CAN_VIEW_GENERAL_DATA);
+  if ("error" in auth) return auth.error;
+
   const { searchParams } = new URL(req.url);
   const product = searchParams.get("product") ?? "PHU_QUY_SILVER_999";
   const branchId = searchParams.get("branch_id") ?? "HN01";
