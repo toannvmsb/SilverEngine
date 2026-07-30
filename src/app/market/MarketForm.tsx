@@ -110,6 +110,10 @@ export default function MarketForm() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [ingesting, setIngesting] = useState(false);
+  const [ingestResults, setIngestResults] = useState<
+    { sourceId: string; status: string; message?: string }[] | null
+  >(null);
 
   useEffect(() => {
     fetch("/api/market-snapshot")
@@ -131,6 +135,38 @@ export default function MarketForm() {
 
   function update(name: string, value: string | boolean) {
     setForm((prev) => ({ ...prev, [name]: value }));
+  }
+
+  async function reloadPrefill() {
+    const r = await fetch("/api/market-snapshot").then((res) => res.json());
+    if (r.feature?.data) {
+      const f = r.feature.data;
+      setForm((prev) => ({
+        ...prev,
+        ...f,
+        quoteSourceTime: new Date(f.quoteSourceTime ?? r.quote?.sourceTime ?? Date.now())
+          .toISOString()
+          .slice(0, 16),
+      }));
+    }
+  }
+
+  async function handleIngest() {
+    setIngesting(true);
+    setError(null);
+    setMessage(null);
+    setIngestResults(null);
+    const res = await fetch("/api/ingestion/run", { method: "POST" });
+    const body = await res.json();
+    setIngesting(false);
+    if (!res.ok) {
+      setError(body.error ?? "Có lỗi khi chạy ingestion.");
+      return;
+    }
+    setIngestResults(body.results);
+    setMessage(`Đã chạy ingestion. Regime: ${body.regime}, Risk Score: ${body.riskScore}`);
+    await reloadPrefill();
+    router.refresh();
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -155,7 +191,47 @@ export default function MarketForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="space-y-4">
+      <Card title="Tự động lấy dữ liệu (connector)">
+        <p className="mb-3 text-sm text-slate-500">
+          Gọi các nguồn đã cấu hình (CFTC COT, FRED, metals spot, Phú Quý nếu đã bật) rồi tự động
+          điền/ghi đè các trường tương ứng bên dưới — trường nào chưa có connector vẫn giữ nguyên
+          giá trị nhập tay gần nhất.
+        </p>
+        <button
+          type="button"
+          onClick={handleIngest}
+          disabled={ingesting}
+          className="rounded border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-100 disabled:opacity-50"
+        >
+          {ingesting ? "Đang lấy dữ liệu..." : "Làm mới từ API"}
+        </button>
+        {ingestResults && (
+          <ul className="mt-3 space-y-1 text-sm">
+            {ingestResults.map((r) => (
+              <li key={r.sourceId} className="flex items-start gap-2">
+                <span
+                  className={`rounded px-2 py-0.5 text-xs font-medium ${
+                    r.status === "OK"
+                      ? "bg-green-100 text-green-800"
+                      : r.status === "FAIL"
+                        ? "bg-red-100 text-red-800"
+                        : "bg-slate-100 text-slate-600"
+                  }`}
+                >
+                  {r.status}
+                </span>
+                <span className="text-slate-700">
+                  <strong>{r.sourceId}</strong>
+                  {r.message ? ` — ${r.message}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
       {error && <p className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       {message && <p className="rounded bg-green-50 px-3 py-2 text-sm text-green-700">{message}</p>}
 
@@ -205,6 +281,7 @@ export default function MarketForm() {
       >
         {loading ? "Đang lưu..." : "Lưu & tính lại chính sách"}
       </button>
-    </form>
+      </form>
+    </div>
   );
 }

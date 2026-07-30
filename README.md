@@ -24,8 +24,12 @@ tiếp dần:
 | RBAC 8 role + maker-checker cho policy | ✅ Đơn giản hoá (NextAuth credentials, chưa OIDC/mTLS) |
 | Audit log + replay quyết định lịch sử | ✅ Đầy đủ |
 | Portfolio stress test (-10/-20/-30%), alert | ✅ Đầy đủ (thủ công trigger, chưa có scheduler) |
-| **Ingestion tự động** (Phú Quý feed/scraper, market vendor, FRED, CFTC COT, economic calendar) | ❌ Chưa làm — cần license/API key thật + phê duyệt Legal (đúng nguyên tắc "không hard-code credential" và "Yêu cầu pháp lý dữ liệu" trong tài liệu). Thay bằng **nhập tay có governance** ở trang Market Data — mỗi lần nhập được version hoá như một feature snapshot |
-| Feature Engine tự động tính returns/vol/percentile từ time-series | ❌ Chưa làm — form Market Data nhận trực tiếp các feature đã tính (vol30d, drawdown...) do anh tự cập nhật từ nguồn trên mạng |
+| **Ingestion tự động — CFTC COT** | ✅ Đầy đủ — API công khai chính phủ Mỹ, không cần key |
+| **Ingestion tự động — FRED** (real yield, dollar index) | ✅ Đầy đủ — cần anh tự đăng ký `FRED_API_KEY` miễn phí |
+| **Ingestion tự động — giá bạc/vàng/đồng quốc tế** | ⚠️ Đã code theo API metals-api.com, **chưa test được với key thật** (môi trường code không ra Internet ngoài) — anh cần tự đăng ký `METALS_API_KEY` và kiểm tra lại số liệu khi chạy local |
+| **Ingestion tự động — giá Phú Quý** | ⚠️ Khung scraper đã có (`src/lib/connectors/phuQuy.ts`), **mặc định tắt** vì chưa có URL trang giá thật — cần anh cung cấp URL + xác nhận robots.txt/điều khoản (section 4.2) rồi cấu hình `PHUQUY_QUOTE_URL`/selector |
+| Feature Engine (vol/drawdown từ time-series) | ✅ Tự tính từ lịch sử giá **do chính hệ thống tích luỹ** (không cần API lịch sử trả phí) — cần vài chục ngày dữ liệu tích luỹ mới đủ cho vol30d/90d, trước đó vẫn dùng giá trị nhập tay |
+| Scheduler tự động chạy ingestion định kỳ | ❌ Chưa làm (đang chạy local) — có nút "Làm mới từ API" bấm thủ công; xem mục Cron bên dưới để bật tự động khi deploy |
 | GARCH/quantile regression/ML ensemble (Phase 2-3) | ❌ Chưa làm |
 | Pawn Core CDC/integration thật | ❌ Chưa làm — có API `batch-upsert` sẵn để nối khi có Pawn Core |
 | OIDC/mTLS, alert qua Telegram/Zalo/SMS | ❌ Chưa làm |
@@ -89,6 +93,33 @@ thể → xem **Audit** để replay lại quyết định.
 
 Trước khi có dữ liệu thị trường, hệ thống **không** cho ra chính sách (503 "Chưa có dữ liệu") — đúng
 nguyên tắc *fail closed* trong tài liệu, thay vì tự ý giả định một mức LTV không có cơ sở.
+
+## Tự động lấy dữ liệu (connector)
+
+Trang **Market Data** có nút **"Làm mới từ API"**: gọi các connector đã cấu hình trong `.env`
+(`FRED_API_KEY`, `METALS_API_KEY`, `PHUQUY_QUOTE_URL`+selector), ghi đè các trường tương ứng, còn
+trường nào chưa có connector (PMI, event risk, liquidation days, price divergence, buyback status)
+thì **giữ nguyên giá trị nhập tay gần nhất** — không có gì bị ép phải tự động hoá cùng lúc.
+
+Yêu cầu trước khi bấm nút này lần đầu: đã nhập tay **ít nhất 1 lần** ở Market Data (hệ thống cần một
+baseline để biết các trường chưa-tự-động-hoá lấy giá trị gì) — đúng tinh thần *fail closed*, không tự
+suy đoán số liệu khi chưa có gì làm nền.
+
+Chi tiết từng connector, field mapping, giới hạn: xem comment đầu mỗi file trong
+`src/lib/connectors/`. **Lưu ý quan trọng**: các connector (trừ CFTC) được viết trong môi trường code
+không có Internet ra ngoài nên **chưa được test trực tiếp với API thật** — khi anh chạy local với key
+thật, hãy đối chiếu số liệu trả về với một nguồn tham khảo công khai trước khi tin dùng, và báo lại
+nếu provider trả sai cấu trúc so với code (rất có thể cần chỉnh field mapping).
+
+### Tự động chạy theo lịch (khi deploy thật)
+
+Hiện chưa deploy nên chưa cấu hình cron. Khi deploy, gọi định kỳ:
+```
+POST /api/ingestion/run     (cần đăng nhập role Data Engineer/Risk Analyst/System Admin)
+```
+- **Vercel**: thêm `vercel.json` với `crons` trỏ tới route trên (cần đổi route thành xác thực bằng
+  secret header thay vì session cookie nếu muốn Vercel Cron gọi được — hỏi em khi anh tới bước này).
+- **VPS tự host**: thêm dòng `crontab` gọi `curl` kèm cookie/token hợp lệ mỗi 5-15 phút.
 
 ## Deploy production
 
