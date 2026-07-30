@@ -26,6 +26,7 @@ model User {
   passwordHash String
   role         String   @default("BRANCH_VIEWER")
   branchId     String?
+  disabled     Boolean  @default(false)
   createdAt    DateTime @default(now())
 
   auditLogs AuditLog[]

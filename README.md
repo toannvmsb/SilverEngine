@@ -36,6 +36,8 @@ tiếp dần:
 | Xác nhận (acknowledge) cảnh báo | ✅ Nút bấm trên Executive, ghi `acknowledgedBy`/`acknowledgedAt` |
 | Đóng hợp đồng (tất toán/thanh lý/vỡ nợ) | ✅ Trang Portfolio — chuyển khỏi danh sách ACTIVE |
 | Giới hạn tần suất gọi API (rate limiting) | ✅ Đăng nhập (5 lần sai/5 phút/email) + `/v1/decisions` (60 request/phút/user) — in-memory, đủ cho 1 instance, chưa dùng được nếu deploy nhiều instance/serverless (xem comment `src/lib/rateLimit.ts`) |
+| **Rà soát bảo mật** (section 15 "Security") | ✅ Đã chạy 1 vòng, tìm và sửa 1 lỗi nghiêm trọng thật (6 API GET lộ dữ liệu không cần đăng nhập) — xem "Lỗi bảo mật đã tìm và sửa" bên dưới |
+| **Quản lý người dùng qua giao diện** | ✅ Trang `/users` (chỉ System Admin) — tạo tài khoản (mật khẩu tạm hiện 1 lần), đổi role, khoá/mở khoá (có hiệu lực ngay cả với phiên đang đăng nhập, không cần đợi hết hạn) |
 | ML ensemble (Phase 3) | ❌ Chưa làm |
 | Pawn Core CDC/integration thật | ❌ Chưa làm — có API `batch-upsert` sẵn để nối khi có Pawn Core |
 | OIDC/mTLS, alert qua Zalo/SMS | ❌ Chưa làm (Telegram đã có) |
@@ -88,6 +90,19 @@ hay 35.7 rơi vào "khe hở" giữa 2 mốc, không khớp điều kiện nào,
 tầm trung bình thường. Đã sửa (`src/lib/engine/regime.ts`) và có test chặn regressions
 (`regime.test.ts`). Đây đúng là loại lỗi mà bộ test tự động sinh ra để bắt.
 
+### Lỗi bảo mật đã tìm và sửa
+
+Chạy 1 vòng rà soát bảo mật (skill chuyên dụng, xác minh chéo bằng sub-agent độc lập để lọc báo nhầm)
+trên toàn bộ code đã build, tìm ra 1 lỗi nghiêm trọng thật: **6 API GET quên gắn kiểm tra đăng
+nhập** (`/v1/portfolio/summary`, `/v1/portfolio/actions`, `/v1/policies/current`, `/v1/source-health`,
+`/market-snapshot`, `/policy-config`) — `src/middleware.ts` loại trừ toàn bộ `/api/*` khỏi middleware
+NextAuth, nên bảo mật hoàn toàn phụ thuộc từng route tự gọi `requireRole()`; mọi route POST đều gọi
+đúng, nhưng 6 route GET này thì quên. Kết quả: bất kỳ ai cũng gọi được và xem dư nợ, LTV danh mục,
+chính sách lãi suất đang áp dụng mà không cần tài khoản, một khi đã deploy public. Đã sửa toàn bộ,
+xác nhận bằng test thực tế (401 khi chưa đăng nhập, 200 khi đã đăng nhập). Cũng sửa luôn 1 lỗi mức
+trung bình cùng đợt: API cập nhật chính sách LTV không kiểm tra giới hạn hợp lý (có thể gửi
+`globalLtvCap: 5` = 500%).
+
 ## Chạy local
 
 ```bash
@@ -112,6 +127,11 @@ Tài khoản seed (đổi mật khẩu trước khi dùng thật):
 | risk.analyst@silverguard.local | Risk Analyst | ChangeMe123! |
 | branch.operator@silverguard.local | Branch Operator | ChangeMe123! |
 | auditor@silverguard.local | Auditor | ChangeMe123! |
+
+**Thêm nhân viên thật**: đăng nhập System Admin → trang **Users** (chỉ Admin thấy trên menu) → tạo
+tài khoản, hệ thống sinh mật khẩu tạm hiện 1 lần duy nhất (gửi cho nhân viên qua kênh riêng, không
+qua email/chat công khai) — không cần chạy script nữa. Có thể đổi role, khoá/mở khoá (có hiệu lực
+ngay cả với phiên đang đăng nhập) và cấp lại mật khẩu tạm bất kỳ lúc nào.
 
 **Luồng dùng thử:** đăng nhập `risk.analyst` → vào **Market Data**, nhập giá Phú Quý + các feature
 (mặc định có sẵn giá trị mẫu hợp lý) → bấm lưu → xem **Executive**/**Policy** cập nhật Regime/LTV

@@ -22,13 +22,15 @@ export default function NavBar() {
 
   if (pathname === "/login") return null;
 
+  const links = session?.user?.role === "SYSTEM_ADMIN" ? [...LINKS, { href: "/users", label: "Users" }] : LINKS;
+
   return (
     <header className="border-b border-slate-200 bg-white">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
         <div className="flex items-center gap-6">
           <span className="text-lg font-bold text-slate-800">SilverGuard</span>
           <nav className="flex gap-1">
-            {LINKS.map((l) => (
+            {links.map((l) => (
               <Link
                 key={l.href}
                 href={l.href}

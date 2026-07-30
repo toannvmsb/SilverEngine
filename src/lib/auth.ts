@@ -29,7 +29,7 @@ export const authOptions: AuthOptions = {
         }
 
         const user = await prisma.user.findUnique({ where: { email: credentials.email } });
-        if (!user) return null;
+        if (!user || user.disabled) return null;
         const valid = await bcrypt.compare(credentials.password, user.passwordHash);
         if (!valid) return null;
         return { id: user.id, email: user.email, name: user.name, role: user.role as RoleName };
@@ -42,12 +42,23 @@ export const authOptions: AuthOptions = {
         token.role = (user as { role: RoleName }).role;
         token.uid = user.id;
       }
+      // Re-check on every request (not just at sign-in) so a role change or
+      // a disable takes effect immediately instead of waiting for the JWT
+      // to expire — this app is small enough that the extra DB read per
+      // request is cheap, and requireRole() below refuses disabled users
+      // even if this check somehow gets skipped.
+      if (token.uid) {
+        const current = await prisma.user.findUnique({ where: { id: token.uid as string } });
+        token.role = current ? (current.role as RoleName) : token.role;
+        token.disabled = !current || current.disabled;
+      }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         (session.user as { role?: RoleName }).role = token.role as RoleName;
         (session.user as { id?: string }).id = token.uid as string;
+        (session.user as { disabled?: boolean }).disabled = Boolean(token.disabled);
       }
       return session;
     },

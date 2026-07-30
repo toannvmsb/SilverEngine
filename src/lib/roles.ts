@@ -54,6 +54,10 @@ export const CAN_MANAGE_PORTFOLIO_CONTRACTS: RoleName[] = ["DATA_ENGINEER", "RIS
 export const CAN_RUN_CHALLENGER_MODELS: RoleName[] = ["MODEL_DEVELOPER", "RISK_ANALYST", "SYSTEM_ADMIN"];
 export const CAN_PROMOTE_MODEL: RoleName[] = ["RISK_APPROVER", "SYSTEM_ADMIN"];
 
+// Section 13: "System Admin: Infra/identity; không phê duyệt nghiệp vụ" — only
+// System Admin manages accounts, deliberately excluded from business approvals.
+export const CAN_MANAGE_USERS: RoleName[] = ["SYSTEM_ADMIN"];
+
 export function isRoleName(value: string): value is RoleName {
   return (ROLES as readonly string[]).includes(value);
 }
