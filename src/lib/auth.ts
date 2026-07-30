@@ -3,6 +3,12 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { RoleName } from "@/lib/roles";
+import { checkRateLimit } from "@/lib/rateLimit";
+
+// 5 attempts / 5 minutes per email — slows down password-guessing without
+// needing a CAPTCHA or account-lockout flow for this stage.
+const LOGIN_ATTEMPT_LIMIT = 5;
+const LOGIN_WINDOW_MS = 5 * 60_000;
 
 export const authOptions: AuthOptions = {
   session: { strategy: "jwt" },
@@ -16,6 +22,12 @@ export const authOptions: AuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
+
+        const rate = checkRateLimit(`login:${credentials.email.toLowerCase()}`, LOGIN_ATTEMPT_LIMIT, LOGIN_WINDOW_MS);
+        if (!rate.allowed) {
+          throw new Error("Quá nhiều lần đăng nhập sai — thử lại sau vài phút.");
+        }
+
         const user = await prisma.user.findUnique({ where: { email: credentials.email } });
         if (!user) return null;
         const valid = await bcrypt.compare(credentials.password, user.passwordHash);

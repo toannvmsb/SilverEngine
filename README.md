@@ -32,9 +32,14 @@ tiếp dần:
 | **Ingestion tự động — giá bạc/vàng quốc tế** | ✅ Đầy đủ, đã chạy thật thành công với GoldAPI.io — cần `GOLDAPI_KEY` free-tier |
 | **Ingestion tự động — giá Phú Quý** | ✅ Gọi thẳng API JSON nội bộ mà trang phuquy.com.vn tự dùng (`be.phuquy.com.vn/.../get-price`, không cần key). **Mặc định tắt** (`PHUQUY_QUOTE_API_ENABLED=false`) — anh tự bật `=true` sau khi xác nhận với Phú Quý/Legal là polling API này cho mục đích nội bộ chấp nhận được (section 4.2). Trang gốc là Angular SPA nên không scrape được HTML tĩnh — phải gọi thẳng API này |
 | Feature Engine (vol/drawdown từ time-series) | ✅ Tự tính từ lịch sử giá **do chính hệ thống tích luỹ** (không cần API lịch sử trả phí) — cần vài chục ngày dữ liệu tích luỹ mới đủ cho vol30d/90d, trước đó vẫn dùng giá trị nhập tay |
+| **Unit test tự động** cho toàn bộ công thức (`npm test`) | ✅ 62 test, `src/lib/engine/*` — phát hiện và sửa 1 bug thật khi viết test (xem "Tình trạng thật" bên dưới) |
+| Xác nhận (acknowledge) cảnh báo | ✅ Nút bấm trên Executive, ghi `acknowledgedBy`/`acknowledgedAt` |
+| Đóng hợp đồng (tất toán/thanh lý/vỡ nợ) | ✅ Trang Portfolio — chuyển khỏi danh sách ACTIVE |
+| Giới hạn tần suất gọi API (rate limiting) | ✅ Đăng nhập (5 lần sai/5 phút/email) + `/v1/decisions` (60 request/phút/user) — in-memory, đủ cho 1 instance, chưa dùng được nếu deploy nhiều instance/serverless (xem comment `src/lib/rateLimit.ts`) |
 | ML ensemble (Phase 3) | ❌ Chưa làm |
 | Pawn Core CDC/integration thật | ❌ Chưa làm — có API `batch-upsert` sẵn để nối khi có Pawn Core |
 | OIDC/mTLS, alert qua Zalo/SMS | ❌ Chưa làm (Telegram đã có) |
+| Load/security test chính thức, backtest với dữ liệu thật | ❌ Chưa làm — chưa có đủ lịch sử giao dịch thật để backtest có ý nghĩa |
 
 Nói cách khác: **phần "não" (risk model + decision engine + LTV + lãi suất) đã chạy đúng công thức
 trong tài liệu**; phần "tay chân" (tự động thu thập dữ liệu 24/7 từ 8 nguồn có license) là việc của
@@ -74,6 +79,15 @@ max_loan          = floor_to_policy_unit(liquidation_value * final_ltv)
 interest_apr = base + term_premium + regime_premium + risk_score_premium   (tự thiết kế, policy-configurable)
 ```
 
+### Bug thật đã tìm và sửa nhờ viết unit test
+
+Khi viết test cho `regimeFromScore`, phát hiện: bảng regime dùng mốc số nguyên rời rạc (LOW 0-20,
+NORMAL 21-35, ...) nhưng risk_score thực tế là số thập phân (làm tròn 1 chữ số). Một điểm như 20.3
+hay 35.7 rơi vào "khe hở" giữa 2 mốc, không khớp điều kiện nào, và hàm cũ âm thầm trả về mặc định
+`CRISIS` — tức là nhảy thẳng lên mức rủi ro cao nhất/STOP_NEW_LOANS một cách sai, cho một điểm số
+tầm trung bình thường. Đã sửa (`src/lib/engine/regime.ts`) và có test chặn regressions
+(`regime.test.ts`). Đây đúng là loại lỗi mà bộ test tự động sinh ra để bắt.
+
 ## Chạy local
 
 ```bash
@@ -82,6 +96,11 @@ cp .env.example .env          # SQLite mặc định, không cần cài Postgres
 npm run db:push               # tạo bảng
 npm run db:seed               # tài khoản mẫu + policy mặc định + source registry
 npm run dev                   # http://localhost:3000
+```
+
+Chạy bộ test (khuyến nghị chạy trước mỗi lần deploy hoặc sau khi sửa `src/lib/engine`):
+```bash
+npm test
 ```
 
 Tài khoản seed (đổi mật khẩu trước khi dùng thật):

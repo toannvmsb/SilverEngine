@@ -9,6 +9,10 @@ import { computeRiskScore, evaluateHardTriggers, regimeFromScore, combineRegime,
 import { getActivePolicyConfig } from "@/lib/policyStore";
 import { requireRole } from "@/lib/apiAuth";
 import { CAN_SUBMIT_TRANSACTIONS } from "@/lib/roles";
+import { rateLimitOrResponse } from "@/lib/rateLimit";
+
+const DECISION_RATE_LIMIT = 60; // per user per minute — generous for legitimate branch usage
+const DECISION_RATE_WINDOW_MS = 60_000;
 
 // Section 10.2 Transaction decision API
 const decisionRequestSchema = z.object({
@@ -28,6 +32,9 @@ const decisionRequestSchema = z.object({
 export async function POST(req: NextRequest) {
   const auth = await requireRole(CAN_SUBMIT_TRANSACTIONS);
   if ("error" in auth) return auth.error;
+
+  const limited = rateLimitOrResponse(`decisions:${auth.session.user.id}`, DECISION_RATE_LIMIT, DECISION_RATE_WINDOW_MS);
+  if (limited) return limited;
 
   const body = await req.json();
   const parsed = decisionRequestSchema.safeParse(body);

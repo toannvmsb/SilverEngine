@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { Card, RegimeBadge, TermStatusBadge, AlertBadge } from "@/components/Badges";
 import { Regime, TermPolicy } from "@/lib/engine";
 import Link from "next/link";
+import AcknowledgeAlertButton from "./AcknowledgeAlertButton";
 
 export const dynamic = "force-dynamic";
 
@@ -103,9 +104,12 @@ export default async function ExecutivePage() {
           ) : (
             <ul className="space-y-2">
               {alerts.map((a) => (
-                <li key={a.id} className="flex items-start gap-2 text-sm">
-                  <AlertBadge level={a.level} />
-                  <span className="text-slate-700">{a.message}</span>
+                <li key={a.id} className="flex items-start justify-between gap-2 text-sm">
+                  <div className="flex items-start gap-2">
+                    <AlertBadge level={a.level} />
+                    <span className="text-slate-700">{a.message}</span>
+                  </div>
+                  <AcknowledgeAlertButton id={a.id} />
                 </li>
               ))}
             </ul>

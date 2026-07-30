@@ -18,7 +18,9 @@ export default function LoginPage() {
     const res = await signIn("credentials", { email, password, redirect: false });
     setLoading(false);
     if (res?.error) {
-      setError("Sai email hoặc mật khẩu.");
+      // authorize() throws a specific message for rate limiting; a plain
+      // "CredentialsSignin" means wrong email/password.
+      setError(res.error === "CredentialsSignin" ? "Sai email hoặc mật khẩu." : res.error);
       return;
     }
     router.push("/");

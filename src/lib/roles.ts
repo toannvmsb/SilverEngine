@@ -35,6 +35,12 @@ export const CAN_ENTER_MARKET_DATA: RoleName[] = ["DATA_ENGINEER", "RISK_ANALYST
 
 export const CAN_VIEW_AUDIT: RoleName[] = ["AUDITOR", "RISK_APPROVER", "SYSTEM_ADMIN"];
 
+// Operational roles — Auditor stays read-only, Branch/Model roles aren't the ones acting on alerts.
+export const CAN_ACKNOWLEDGE_ALERTS: RoleName[] = ["DATA_ENGINEER", "RISK_ANALYST", "RISK_APPROVER", "SYSTEM_ADMIN"];
+
+// Same operational set — closing out a pawn contract (redeemed/liquidated/default).
+export const CAN_MANAGE_PORTFOLIO_CONTRACTS: RoleName[] = ["DATA_ENGINEER", "RISK_ANALYST", "RISK_APPROVER", "SYSTEM_ADMIN"];
+
 // Section 13 role table: "Model Developer: Đăng challenger, không promote production".
 export const CAN_RUN_CHALLENGER_MODELS: RoleName[] = ["MODEL_DEVELOPER", "RISK_ANALYST", "SYSTEM_ADMIN"];
 export const CAN_PROMOTE_MODEL: RoleName[] = ["RISK_APPROVER", "SYSTEM_ADMIN"];
