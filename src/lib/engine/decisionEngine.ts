@@ -66,6 +66,15 @@ export function buildTermPolicies(
   });
 }
 
+/** Market-wide (not asset-specific) buyback-restriction haircut — shared by
+ * computeDecision and the reference-price display on the Executive/Policy
+ * dashboards, so the two never drift apart. */
+export function computeLiquidityFactor(policy: PolicyConfig, buybackStatus: BuybackStatus): number {
+  if (buybackStatus === "STOPPED") return policy.liquidityFactor.stoppedBuyback;
+  if (buybackStatus === "RESTRICTED") return policy.liquidityFactor.restrictedBuyback;
+  return 1;
+}
+
 export function computeDecision(
   input: TransactionRequestInput,
   ctx: {
@@ -133,12 +142,7 @@ export function computeDecision(
     qualityFactor *= policy.assetQuality.unverifiedSerialFactor;
     reasonCodes.add("ASSET_QUALITY_HAIRCUT");
   }
-  const liquidityFactor =
-    market.buybackStatus === "STOPPED"
-      ? policy.liquidityFactor.stoppedBuyback
-      : market.buybackStatus === "RESTRICTED"
-        ? policy.liquidityFactor.restrictedBuyback
-        : 1;
+  const liquidityFactor = computeLiquidityFactor(policy, market.buybackStatus);
 
   const liquidationValue = market.phuQuyBuyPrice * eligibleWeight * qualityFactor * liquidityFactor;
   const finalLtv = termEntry.ltvCap;

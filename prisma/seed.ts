@@ -34,20 +34,23 @@ async function main() {
     staleAfterSeconds: number;
     priority: number;
     ownerTeam: string;
+    licenseStatus: string;
+    credentialSecretRef: string | null;
   }[] = [
-    { sourceId: "PHUQUY_BUYBACK", sourceName: "Phú Quý buy/sell/spread", dataDomain: "phuquy", method: "MANUAL", staleAfterSeconds: 1800, priority: 1, ownerTeam: "Data" },
-    { sourceId: "SILVER_MARKET", sourceName: "Silver/Gold/Copper spot", dataDomain: "metals", method: "MANUAL", staleAfterSeconds: 3600, priority: 1, ownerTeam: "Data" },
-    { sourceId: "FX_DXY", sourceName: "USD/VND, DXY", dataDomain: "fx", method: "MANUAL", staleAfterSeconds: 3600, priority: 2, ownerTeam: "Data" },
-    { sourceId: "FRED_YIELDS", sourceName: "US 2Y/10Y yields, real yield", dataDomain: "rates", method: "MANUAL", staleAfterSeconds: 86400, priority: 2, ownerTeam: "Data" },
-    { sourceId: "MACRO_RELEASES", sourceName: "CPI, PCE, PMI, payrolls", dataDomain: "macro", method: "MANUAL", staleAfterSeconds: 86400, priority: 3, ownerTeam: "Data" },
-    { sourceId: "CFTC_COT", sourceName: "CFTC COT silver futures/options", dataDomain: "positioning", method: "MANUAL", staleAfterSeconds: 604800, priority: 3, ownerTeam: "Data" },
-    { sourceId: "ECON_CALENDAR", sourceName: "Fed/CPI/payroll/expiry/margin notices", dataDomain: "events", method: "MANUAL", staleAfterSeconds: 3600, priority: 3, ownerTeam: "Risk" },
+    { sourceId: "PHUQUY_BUYBACK", sourceName: "Phú Quý buy/sell/spread", dataDomain: "phuquy", method: "API", staleAfterSeconds: 1800, priority: 1, ownerTeam: "Data", licenseStatus: "PENDING", credentialSecretRef: "PHUQUY_QUOTE_API_ENABLED=true (API nội bộ be.phuquy.com.vn, không cần key — cần xác nhận với Phú Quý/Legal trước khi bật, section 4.2)" },
+    { sourceId: "SILVER_MARKET", sourceName: "Silver/Gold spot", dataDomain: "metals", method: "API", staleAfterSeconds: 3600, priority: 1, ownerTeam: "Data", licenseStatus: "PENDING", credentialSecretRef: "GOLDAPI_KEY (goldapi.io free-tier — xác nhận điều khoản gói đã đăng ký)" },
+    { sourceId: "FX_DXY", sourceName: "USD/VND, DXY", dataDomain: "fx", method: "MANUAL", staleAfterSeconds: 3600, priority: 2, ownerTeam: "Data", licenseStatus: "NOT_REQUIRED", credentialSecretRef: null },
+    { sourceId: "FRED_YIELDS", sourceName: "US 10Y real yield, broad dollar index", dataDomain: "rates", method: "API", staleAfterSeconds: 86400, priority: 2, ownerTeam: "Data", licenseStatus: "NOT_REQUIRED", credentialSecretRef: "FRED_API_KEY (miễn phí, tự đăng ký tại fred.stlouisfed.org)" },
+    { sourceId: "MACRO_RELEASES", sourceName: "CPI, PCE, PMI, payrolls", dataDomain: "macro", method: "MANUAL", staleAfterSeconds: 86400, priority: 3, ownerTeam: "Data", licenseStatus: "NOT_REQUIRED", credentialSecretRef: null },
+    { sourceId: "CFTC_COT", sourceName: "CFTC COT silver futures/options", dataDomain: "positioning", method: "API", staleAfterSeconds: 604800, priority: 3, ownerTeam: "Data", licenseStatus: "NOT_REQUIRED", credentialSecretRef: "CFTC_COT_ENABLED=true (chặn theo IP/quốc gia từ VN, đã xác nhận — thử lại nếu deploy server ở Mỹ)" },
+    { sourceId: "ECON_CALENDAR", sourceName: "Fed/CPI/payroll/expiry/margin notices", dataDomain: "events", method: "MANUAL", staleAfterSeconds: 3600, priority: 3, ownerTeam: "Risk", licenseStatus: "NOT_REQUIRED", credentialSecretRef: null },
   ];
   for (const s of sources) {
+    const { licenseStatus, ...rest } = s;
     await prisma.sourceRegistry.upsert({
       where: { sourceId: s.sourceId },
-      create: { ...s, licenseStatus: "PENDING", enabled: true, expectedLatencySeconds: 300 },
-      update: {},
+      create: { ...rest, licenseStatus, enabled: true, expectedLatencySeconds: 300 },
+      update: { method: s.method, licenseStatus, credentialSecretRef: s.credentialSecretRef, staleAfterSeconds: s.staleAfterSeconds },
     });
   }
 

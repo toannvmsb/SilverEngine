@@ -1,12 +1,22 @@
 import { REGIME_TABLE } from "./constants";
 import { HardTriggerContext, HardTriggerOutcome, Regime, REGIME_ORDER } from "./types";
 
+/**
+ * REGIME_TABLE's scoreMin/scoreMax are defined as integer buckets (e.g. LOW
+ * 0-20, NORMAL 21-35), but the actual risk_score is a float rounded to 1
+ * decimal — a score like 20.3 or 35.7 falls in the gap between two buckets'
+ * integer bounds and must not be treated as unmatched. Walk the ordered
+ * table from the top and take the first regime whose scoreMin the score
+ * clears; this is exactly equivalent to the integer table's intent (LOW
+ * covers everything below NORMAL's scoreMin, i.e. up to just under 21) while
+ * staying correct for any fractional score.
+ */
 export function regimeFromScore(score: number): Regime {
-  for (const regime of REGIME_ORDER) {
-    const bucket = REGIME_TABLE[regime];
-    if (score >= bucket.scoreMin && score <= bucket.scoreMax) return regime;
+  for (let i = REGIME_ORDER.length - 1; i >= 0; i--) {
+    const regime = REGIME_ORDER[i];
+    if (score >= REGIME_TABLE[regime].scoreMin) return regime;
   }
-  return "CRISIS";
+  return "LOW";
 }
 
 function regimeRank(r: Regime): number {

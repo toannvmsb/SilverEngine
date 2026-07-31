@@ -8,6 +8,9 @@ export async function requireRole(allowed: RoleName[]) {
   if (!session?.user) {
     return { error: NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 }) } as const;
   }
+  if (session.user.disabled) {
+    return { error: NextResponse.json({ error: "ACCOUNT_DISABLED" }, { status: 401 }) } as const;
+  }
   if (!allowed.includes(session.user.role as RoleName)) {
     return { error: NextResponse.json({ error: "FORBIDDEN", requiredRoles: allowed }, { status: 403 }) } as const;
   }

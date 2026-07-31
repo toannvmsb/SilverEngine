@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireRole } from "@/lib/apiAuth";
+import { CAN_VIEW_GENERAL_DATA } from "@/lib/roles";
+
+export const dynamic = "force-dynamic";
 
 // Section 10.3 GET /v1/source-health
 export async function GET() {
+  const auth = await requireRole(CAN_VIEW_GENERAL_DATA);
+  if ("error" in auth) return auth.error;
+
   const sources = await prisma.sourceRegistry.findMany({ orderBy: { priority: "asc" } });
   const quote = await prisma.phuQuyQuote.findFirst({ orderBy: { sourceTime: "desc" } });
   const feature = await prisma.featureSnapshot.findFirst({ orderBy: { asOf: "desc" } });

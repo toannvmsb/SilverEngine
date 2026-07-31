@@ -3,6 +3,7 @@ import {
   buildTermPolicies,
   computeRiskScore,
   combineRegime,
+  computeLiquidityFactor,
   evaluateHardTriggers,
   regimeFromScore,
   MODEL_VERSION,
@@ -13,6 +14,8 @@ import {
   toHardTriggerContext,
   toRiskScoreInputs,
 } from "@/lib/featureSnapshot";
+import { createAlert } from "@/lib/alerts/createAlert";
+import { Regime, HardTriggerOutcome } from "@/lib/engine";
 
 export async function getLatestFeatureSnapshot(): Promise<
   { data: MarketFeatureFormData; asOf: Date } | null
@@ -67,6 +70,8 @@ export async function runPipeline(enteredBy?: string) {
   const scoreRegime = regimeFromScore(riskResult.score);
   const regime = combineRegime(scoreRegime, hardOutcome.regimeFloor);
 
+  await raiseSystemAlerts(regime, hardOutcome);
+
   const market = {
     annualizedVol: feature.data.ewmaVol,
     spreadPct: (quote.sellPrice - quote.buyPrice) / quote.buyPrice,
@@ -77,6 +82,12 @@ export async function runPipeline(enteredBy?: string) {
   const terms = buildTermPolicies(policy, regime, hardOutcome, market);
 
   const dataQualityScore = Math.min(100, Math.max(0, Math.round(100 - quoteAgeMinutes * 2)));
+
+  // Reference valuation per gram — Phu Quy buy price adjusted only for the
+  // market-wide liquidity_factor (today's buyback status), NOT the
+  // asset-specific quality_factor (seal/serial), which only applies once a
+  // specific piece of collateral is being assessed at the Calculator.
+  const referencePricePerGram = quote.buyPrice * computeLiquidityFactor(policy, market.buybackStatus);
 
   const riskSnapshot = await prisma.riskSnapshot.create({
     data: {
@@ -97,6 +108,7 @@ export async function runPipeline(enteredBy?: string) {
       regime,
       riskScore: riskResult.score,
       dataQualityScore,
+      referencePricePerGram,
       terms: JSON.stringify(terms),
       reasonCodes: JSON.stringify(hardOutcome.reasonCodes),
       policyVersion,
@@ -114,4 +126,27 @@ export async function runPipeline(enteredBy?: string) {
   });
 
   return { riskSnapshot, policySnapshot, terms, regime, riskResult, hardOutcome, policy, policyVersion, market, quoteAgeMinutes, dataQualityScore };
+}
+
+/**
+ * Section 12 alert levels applied to system-wide (non-portfolio-specific)
+ * events: a hard trigger forcing STOP, or the regime itself reaching
+ * STRESS/CRISIS purely from the score.
+ */
+async function raiseSystemAlerts(regime: Regime, hardOutcome: HardTriggerOutcome): Promise<void> {
+  if (hardOutcome.forceStop || regime === "CRISIS") {
+    await createAlert({
+      level: "CRITICAL",
+      category: "SYSTEM",
+      message: `STOP_NEW_LOANS — regime=${regime}, reason_codes=${hardOutcome.reasonCodes.join(", ") || "score-based CRISIS"}`,
+      context: { regime, reasonCodes: hardOutcome.reasonCodes },
+    });
+  } else if (regime === "STRESS") {
+    await createAlert({
+      level: "HIGH",
+      category: "SYSTEM",
+      message: `Regime chuyển sang STRESS — reason_codes=${hardOutcome.reasonCodes.join(", ") || "score-based"}`,
+      context: { regime, reasonCodes: hardOutcome.reasonCodes },
+    });
+  }
 }

@@ -26,7 +26,7 @@ export default function CalculatorForm() {
   const [sealStatus, setSealStatus] = useState<"INTACT" | "DAMAGED">("INTACT");
   const [serialVerified, setSerialVerified] = useState(true);
   const [termDays, setTermDays] = useState("30");
-  const [amount, setAmount] = useState("7000000");
+  const [amount, setAmount] = useState("15000000");
   const [result, setResult] = useState<DecisionResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);

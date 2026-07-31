@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { Card, AlertBadge } from "@/components/Badges";
 import PortfolioClient from "./PortfolioClient";
+import CloseContractControl from "./CloseContractControl";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +50,7 @@ export default async function PortfolioPage() {
               <th className="py-2">Stressed LTV -20%</th>
               <th className="py-2">Cảnh báo</th>
               <th className="py-2">Action</th>
+              <th className="py-2">Đóng hợp đồng</th>
             </tr>
           </thead>
           <tbody>
@@ -61,11 +63,14 @@ export default async function PortfolioPage() {
                 <td className="py-2">{valuation ? `${(valuation.stressedLtv20 * 100).toFixed(1)}%` : "—"}</td>
                 <td className="py-2">{valuation?.alertLevel ? <AlertBadge level={valuation.alertLevel} /> : "—"}</td>
                 <td className="py-2 text-xs text-slate-500">{valuation?.action ?? "—"}</td>
+                <td className="py-2">
+                  <CloseContractControl contractId={contract.contractId} />
+                </td>
               </tr>
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-4 text-center text-slate-400">
+                <td colSpan={8} className="py-4 text-center text-slate-400">
                   Chưa có hợp đồng nào.
                 </td>
               </tr>

@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireRole } from "@/lib/apiAuth";
+import { CAN_VIEW_GENERAL_DATA } from "@/lib/roles";
+
+export const dynamic = "force-dynamic";
 
 // Section 10.3 GET /v1/portfolio/actions?severity=HIGH
 export async function GET(req: NextRequest) {
+  const auth = await requireRole(CAN_VIEW_GENERAL_DATA);
+  if ("error" in auth) return auth.error;
+
   const severity = new URL(req.url).searchParams.get("severity");
 
   const contracts = await prisma.portfolioContract.findMany({ where: { status: "ACTIVE" } });

@@ -1,14 +1,13 @@
 // SilverGuard Risk Engine — data model
-// Dev default: SQLite (zero setup). For production, switch provider to
-// "postgresql" and point DATABASE_URL to your Postgres/TimescaleDB instance —
-// the schema below is written to be portable to Postgres without changes.
+// Postgres-backed (Vercel deploy target). DATABASE_URL must point to a
+// postgresql:// connection string — see README "Deploy lên Vercel".
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -16,9 +15,9 @@ datasource db {
 // Auth / RBAC (section 13) — simplified single-tenant role model.
 // ---------------------------------------------------------------------------
 
-// SQLite has no native enum support; Role is validated in application code
-// (see src/lib/roles.ts) against: BRANCH_VIEWER, BRANCH_OPERATOR, RISK_ANALYST,
-// RISK_APPROVER, DATA_ENGINEER, MODEL_DEVELOPER, AUDITOR, SYSTEM_ADMIN.
+// Role is a plain string, validated in application code (see src/lib/roles.ts)
+// against: BRANCH_VIEWER, BRANCH_OPERATOR, RISK_ANALYST, RISK_APPROVER,
+// DATA_ENGINEER, MODEL_DEVELOPER, AUDITOR, SYSTEM_ADMIN.
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -26,6 +25,8 @@ model User {
   passwordHash String
   role         String   @default("BRANCH_VIEWER")
   branchId     String?
+  disabled     Boolean  @default(false)
+  mustChangePassword Boolean @default(false)
   createdAt    DateTime @default(now())
 
   auditLogs AuditLog[]
@@ -153,6 +154,7 @@ model PolicySnapshot {
   regime         String
   riskScore      Float
   dataQualityScore Float
+  referencePricePerGram Float @default(0) // Phu Quy buy price x liquidity_factor — reference valuation only, excludes asset-specific quality_factor (see Calculator for a specific transaction)
   terms          String // JSON array of {days, ltvCap, status}
   reasonCodes    String // JSON array
   policyVersion  String
@@ -271,15 +273,18 @@ model RuleRegistryEntry {
 }
 
 model AlertEvent {
-  id           String    @id @default(cuid())
-  level        String // INFO | WARNING | HIGH | CRITICAL
-  category     String
-  message      String
-  contextJson  String? // JSON
-  acknowledged Boolean   @default(false)
+  id             String    @id @default(cuid())
+  level          String // INFO | WARNING | HIGH | CRITICAL
+  category       String
+  message        String
+  contextJson    String? // JSON
+  acknowledged   Boolean   @default(false)
   acknowledgedBy String?
   acknowledgedAt DateTime?
-  createdAt    DateTime  @default(now())
+  delivered      Boolean   @default(false)
+  deliveryChannel String? // "telegram" | null (not attempted / not configured)
+  deliveryError  String?
+  createdAt      DateTime  @default(now())
 
   @@index([level, acknowledged])
 }

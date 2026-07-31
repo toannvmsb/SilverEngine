@@ -11,6 +11,8 @@ const LINKS: { href: string; label: string }[] = [
   { href: "/policy", label: "Policy" },
   { href: "/calculator", label: "Calculator" },
   { href: "/portfolio", label: "Portfolio" },
+  { href: "/data-quality", label: "Data Quality" },
+  { href: "/governance", label: "Governance" },
   { href: "/audit", label: "Audit" },
 ];
 
@@ -20,46 +22,62 @@ export default function NavBar() {
 
   if (pathname === "/login") return null;
 
+  const links = session?.user?.role === "SYSTEM_ADMIN" ? [...LINKS, { href: "/users", label: "Users" }] : LINKS;
+
   return (
-    <header className="border-b border-slate-200 bg-white">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
-        <div className="flex items-center gap-6">
-          <span className="text-lg font-bold text-slate-800">SilverGuard</span>
-          <nav className="flex gap-1">
-            {LINKS.map((l) => (
-              <Link
-                key={l.href}
-                href={l.href}
-                className={`rounded px-3 py-1.5 text-sm font-medium ${
-                  pathname === l.href
-                    ? "bg-slate-900 text-white"
-                    : "text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                {l.label}
-              </Link>
-            ))}
-          </nav>
-        </div>
-        <div className="flex items-center gap-3 text-sm text-slate-600">
-          {session?.user && (
-            <>
-              <span>
-                {session.user.name} ·{" "}
-                <span className="font-medium text-slate-800">
-                  {ROLE_LABELS[session.user.role as RoleName] ?? session.user.role}
+    <>
+      <header className="border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-6">
+            <span className="text-lg font-bold text-slate-800">SilverGuard</span>
+            <nav className="flex gap-1">
+              {links.map((l) => (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  className={`rounded px-3 py-1.5 text-sm font-medium ${
+                    pathname === l.href
+                      ? "bg-slate-900 text-white"
+                      : "text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  {l.label}
+                </Link>
+              ))}
+            </nav>
+          </div>
+          <div className="flex items-center gap-3 text-sm text-slate-600">
+            {session?.user && (
+              <>
+                <span>
+                  {session.user.name} ·{" "}
+                  <span className="font-medium text-slate-800">
+                    {ROLE_LABELS[session.user.role as RoleName] ?? session.user.role}
+                  </span>
                 </span>
-              </span>
-              <button
-                onClick={() => signOut({ callbackUrl: "/login" })}
-                className="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100"
-              >
-                Đăng xuất
-              </button>
-            </>
-          )}
+                <Link href="/account" className="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100">
+                  Đổi mật khẩu
+                </Link>
+                <button
+                  onClick={() => signOut({ callbackUrl: "/login" })}
+                  className="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100"
+                >
+                  Đăng xuất
+                </button>
+              </>
+            )}
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+      {session?.user?.mustChangePassword && pathname !== "/account" && (
+        <div className="bg-yellow-50 px-4 py-2 text-center text-sm text-yellow-800">
+          Bạn đang dùng mật khẩu tạm do Admin cấp — vui lòng{" "}
+          <Link href="/account" className="font-medium underline">
+            đổi mật khẩu ngay
+          </Link>
+          .
+        </div>
+      )}
+    </>
   );
 }

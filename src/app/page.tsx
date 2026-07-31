@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { Card, RegimeBadge, TermStatusBadge, AlertBadge } from "@/components/Badges";
 import { Regime, TermPolicy } from "@/lib/engine";
 import Link from "next/link";
+import AcknowledgeAlertButton from "./AcknowledgeAlertButton";
 
 export const dynamic = "force-dynamic";
 
@@ -50,12 +51,23 @@ export default async function ExecutivePage() {
         </Card>
       </div>
 
+      <Card title="Giá định giá bạc (tham chiếu)">
+        <div className="text-3xl font-bold text-slate-800">
+          {snapshot.referencePricePerGram.toLocaleString("vi-VN")} <span className="text-base font-normal text-slate-400">VND/gram</span>
+        </div>
+        <div className="mt-1 text-xs text-slate-400">
+          Giá mua vào Phú Quý đã áp hệ số thanh khoản theo trạng thái mua lại hiện tại — <strong>chưa</strong> trừ
+          quality_factor (seal/serial), số cụ thể theo từng tài sản tính ở trang Calculator.
+        </div>
+      </Card>
+
       <Card title={`Chính sách hôm nay — as of ${snapshot.asOf.toLocaleString("vi-VN")}`}>
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b text-left text-slate-500">
               <th className="py-2">Kỳ hạn (ngày)</th>
               <th className="py-2">LTV cap</th>
+              <th className="py-2">Cho vay tối đa/gram</th>
               <th className="py-2">Trạng thái</th>
             </tr>
           </thead>
@@ -64,6 +76,9 @@ export default async function ExecutivePage() {
               <tr key={t.days} className="border-b last:border-0">
                 <td className="py-2">{t.days}</td>
                 <td className="py-2">{(t.ltvCap * 100).toFixed(1)}%</td>
+                <td className="py-2">
+                  {Math.round(snapshot.referencePricePerGram * t.ltvCap).toLocaleString("vi-VN")} VND
+                </td>
                 <td className="py-2">
                   <TermStatusBadge status={t.status} />
                 </td>
@@ -89,9 +104,12 @@ export default async function ExecutivePage() {
           ) : (
             <ul className="space-y-2">
               {alerts.map((a) => (
-                <li key={a.id} className="flex items-start gap-2 text-sm">
-                  <AlertBadge level={a.level} />
-                  <span className="text-slate-700">{a.message}</span>
+                <li key={a.id} className="flex items-start justify-between gap-2 text-sm">
+                  <div className="flex items-start gap-2">
+                    <AlertBadge level={a.level} />
+                    <span className="text-slate-700">{a.message}</span>
+                  </div>
+                  <AcknowledgeAlertButton id={a.id} />
                 </li>
               ))}
             </ul>
