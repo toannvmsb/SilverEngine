@@ -108,11 +108,15 @@ trung bình cùng đợt: API cập nhật chính sách LTV không kiểm tra gi
 
 ```bash
 npm install
-cp .env.example .env          # SQLite mặc định, không cần cài Postgres
+cp .env.example .env          # điền DATABASE_URL trỏ tới Postgres (xem "Deploy lên Vercel" bước 1)
 npm run db:push               # tạo bảng
 npm run db:seed               # tài khoản mẫu + policy mặc định + source registry
 npm run dev                   # http://localhost:3000
 ```
+
+App cần Postgres kể cả khi chạy local (không dùng SQLite nữa) — dùng free-tier Vercel
+Postgres/Supabase/Neon, hoặc Postgres cài local đều được. Dùng chung 1 Postgres cho local +
+production tránh model bị lệch giữa hai môi trường.
 
 Chạy bộ test (khuyến nghị chạy trước mỗi lần deploy hoặc sau khi sửa `src/lib/engine`):
 ```bash
@@ -243,24 +247,17 @@ bật `GOLDAPI_KEY` + chạy `npm run scheduler` vài tuần để tích luỹ �
 
 ## Deploy lên Vercel
 
-### 1. Tạo database Postgres (SQLite chỉ dùng được ở local — Vercel không có ổ đĩa ghi được lâu dài)
+### 1. Tạo database Postgres (Vercel không có ổ đĩa ghi được lâu dài, nên schema đã cấu hình sẵn cho Postgres — không dùng SQLite nữa kể cả ở local)
 
 Chọn 1 trong các gói free-tier: **Vercel Postgres** (tích hợp sẵn trong dashboard Vercel, dễ nhất),
 hoặc **Supabase**/**Neon** (free tier riêng, kết nối qua connection string chuẩn Postgres).
 
 Sau khi có connection string (dạng `postgresql://user:pass@host:port/db?sslmode=require`):
 
-1. Sửa `prisma/schema.prisma`, đổi:
-   ```prisma
-   datasource db {
-     provider = "sqlite"   // đổi thành "postgresql"
-     url      = env("DATABASE_URL")
-   }
-   ```
-2. Chạy `npx prisma db push` **với `DATABASE_URL` trỏ tới Postgres** (đặt tạm trong `.env` hoặc biến
+1. Chạy `npx prisma db push` **với `DATABASE_URL` trỏ tới Postgres** (đặt trong `.env` hoặc biến
    môi trường dòng lệnh) để tạo bảng trên Postgres — schema đã viết portable sẵn (không dùng field
-   type riêng của SQLite), không cần sửa gì thêm trong file schema ngoài dòng `provider`.
-3. Chạy `npm run db:seed` (trỏ cùng `DATABASE_URL` Postgres) để có tài khoản System Admin đầu tiên —
+   type riêng của SQLite).
+2. Chạy `npm run db:seed` (trỏ cùng `DATABASE_URL` Postgres) để có tài khoản System Admin đầu tiên —
    **đổi mật khẩu ngay sau khi deploy** (trang `/account` hoặc `/users`).
 
 ### 2. Import repo vào Vercel
